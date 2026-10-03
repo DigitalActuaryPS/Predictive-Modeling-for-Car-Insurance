@@ -1,0 +1,3 @@
+step,best_by_improvement,best_n_params,simpler_form,simpler_n_params,mean_paired_difference,sd_paired_difference,simpler_taken
+3,b12_x_bm_3grp,2,b12_x_bm_linear,1,3.361301226045832e-05,4.937121225670449e-05,True
+4,region_bm_slope_3grp,2,region_bm_slope_2grp,1,6.670924922613786e-06,5.076749135042378e-05,True

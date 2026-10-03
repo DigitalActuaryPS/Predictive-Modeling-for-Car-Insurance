@@ -95,8 +95,16 @@ def write() -> str:
         if r.sign_stable_all_folds and not r.rule4_stable_sensible:
             reasons.append(f"multiplier up to {r.multiplier_p99:.2f}, above 2.0")
         lines.append(f"- {r.candidate}: " + "; ".join(reasons) + ".")
+    tb = pd.read_csv(T / "interaction_parsimony_tiebreaks.csv") if (T / "interaction_parsimony_tiebreaks.csv").exists() else pd.DataFrame()
+    parsimony = set(tb.loc[tb["simpler_taken"], "best_by_improvement"]) if len(tb) else set()
     if beaten:
-        lines.append("- Passed but beaten by a form of the same pair: " + ", ".join(beaten) + ".")
+        p_ = [c for c in beaten if c in parsimony]
+        o_ = [c for c in beaten if c not in parsimony]
+        if p_:
+            lines.append("- Passed; a simpler form within one paired fold sd was taken "
+                         "(tie-break): " + ", ".join(p_) + ".")
+        if o_:
+            lines.append("- Passed but beaten by a form of the same pair: " + ", ".join(o_) + ".")
     lines += [
         "",
         "## Share of GBM lift captured",

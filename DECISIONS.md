@@ -387,6 +387,12 @@ selection.
    owner to keep the tariff carryable. Forward selection stops when no candidate passes
    rules 1 to 4, or when 5 have been accepted.
 
+6. **Parsimony tie-break** (added by the owner after Stage 4). Within one step, take the
+   passing form with the largest mean improvement, unless a passing form with fewer
+   parameters is worse by less than the sd of the paired fold differences between the
+   two forms. In that case take the simpler form. The log is
+   `interaction_parsimony_tiebreaks.csv`.
+
 Each accepted interaction's share of the gap closed,
 (improvement / (GLM-A CV deviance - GBM CV deviance)), is reported per interaction and
 cumulatively.
@@ -545,14 +551,14 @@ cumulatively.
 
 | Pair | vs GLM-A: sum z²/df, excluded-cell df (headline) | vs GLM-A: sum z²/(r-1)(c-1) | vs GLM-A: mean z² per cell | vs GLM-A: abs(z) > 1.96, cells (expected) | vs GLM-B: headline |
 |---|---|---|---|---|---|
-| DrivAge x BonusMalus | 5.79 | 3.88 | 4.41 | 33 / 88 (4.4) | 3.29 |
-| BonusMalus x VehBrand | 3.58 | 2.82 | 2.79 | 16 / 91 (4.5) | 0.98 |
-| BonusMalus x Region | 3.88 | 2.21 | 3.01 | 25 / 125 (6.2) | 1.68 |
-| BonusMalus x LogDensity | 2.20 | 1.96 | 1.74 | 14 / 90 (4.5) | 1.49 |
-| DrivAge x LogDensity | 0.82 | 0.69 | 0.64 | 1 / 87 (4.4) | 0.88 |
-| VehAge x VehBrand | 1.80 | 1.62 | 1.41 | 11 / 83 (4.2) | 1.76 |
-| DrivAge x VehPower | 1.52 | 1.12 | 1.15 | 5 / 78 (3.9) | 1.51 |
-| DrivAge x Region | 0.99 | 0.64 | 0.79 | 2 / 137 (6.9) | 1.22 |
+| DrivAge x BonusMalus | 5.79 | 3.88 | 4.41 | 33 / 88 (4.4) | 3.30 |
+| BonusMalus x VehBrand | 3.58 | 2.82 | 2.79 | 16 / 91 (4.5) | 1.18 |
+| BonusMalus x Region | 3.88 | 2.21 | 3.01 | 25 / 125 (6.2) | 2.01 |
+| BonusMalus x LogDensity | 2.20 | 1.96 | 1.74 | 14 / 90 (4.5) | 1.57 |
+| DrivAge x LogDensity | 0.82 | 0.69 | 0.64 | 1 / 87 (4.4) | 0.85 |
+| VehAge x VehBrand | 1.80 | 1.62 | 1.41 | 11 / 83 (4.2) | 1.77 |
+| DrivAge x VehPower | 1.52 | 1.12 | 1.15 | 5 / 78 (3.9) | 1.49 |
+| DrivAge x Region | 0.99 | 0.64 | 0.79 | 2 / 137 (6.9) | 1.16 |
 
 - **Rejected without a GLM test (owner decision).** Reasons, from
   `interaction_not_translated.csv`:
@@ -603,7 +609,7 @@ cumulatively.
   price on top of its main effects.
 - **Where it binds.**
   - In the final run it decided nothing. Every candidate rejected there failed rule 2 or
-    rule 3, and the accepted forms' multipliers range from 0.60 to 1.98
+    rule 3, and the accepted forms' multipliers range from 0.55 to 1.98
     (`interaction_selection_log.csv`).
   - In the superseded first run it rejected two age x BonusMalus variants (99th
     percentiles of 2.01 and 2.19). Neither was among the forms the owner later specified.
@@ -611,103 +617,95 @@ cumulatively.
 ## D027 Forward selection result: three interactions accepted
 
 All figures are from `reports/tables/interaction_selection_log.csv`,
-`interaction_accepted.csv`, `gap_closed.csv` and `frequency_model_comparison.csv`. The
-GLM-A to GBM CV gap is 0.001578, so the 5% floor is about 0.0000789.
+`interaction_accepted.csv`, `interaction_parsimony_tiebreaks.csv`, `gap_closed.csv` and
+`frequency_model_comparison.csv`. The GLM-A to GBM CV gap is 0.001578, so the 5% floor
+is about 0.0000789.
 
-| Step | Candidate | Share of gap | Folds improved | Outcome |
-|---|---|---|---|---|
-| 1 | young_lbm_senior_malus | 16.9% | 5 | Accepted |
-| 2 | bm_x_density | 3.9% | 5 | Rejected: below the 5% floor. Passes every other rule |
-| 3 | b12_x_bm_3grp | 20.4% | 5 | Accepted |
-| 3 | b12_x_bm_linear | 18.2% | 5 | Passed. Not taken, because the 3-group form improved more |
-| 4 | region_bm_slope_3grp | 11.7% | 5 | Accepted |
-| 4 | region_bm_slope_2grp | 11.5% | 5 | Passed. Not taken (see below) |
-| 5 | b12_x_newcar | 2.3% | 3 | Rejected: only 3 of 5 folds, and below the floor |
+| Step | Candidate | Parameters | Share of gap | Folds improved | Outcome |
+|---|---|---|---|---|---|
+| 1 | young_lbm_senior_malus | 2 | 16.9% | 5 | Accepted |
+| 2 | bm_x_density | 1 | 3.9% | 5 | Rejected: below the 5% floor. Passes every other rule |
+| 3 | b12_x_bm_linear | 1 | 18.2% | 5 | **Accepted by the parsimony tie-break** |
+| 3 | b12_x_bm_3grp | 2 | 20.4% | 5 | Passed. Not taken |
+| 4 | region_bm_slope_2grp | 1 | 10.9% | 5 | **Accepted by the parsimony tie-break** |
+| 4 | region_bm_slope_3grp | 2 | 11.3% | 5 | Passed. Not taken |
+| 5 | b12_x_newcar | 1 | 2.4% | 3 | Rejected: only 3 of 5 folds, and below the floor |
 
-- **Final GLM-B interaction coefficients** (`glm_b_coefficients.csv`, offset fit, se in
-  brackets, from `interaction_exposure_check.csv`):
-  - lbm x age under 30: +0.931 (0.108)
-  - age 55+ x BonusMalus above 50: +0.290 (0.035)
-  - B12 x BonusMalus 51-99: -0.301 (0.040)
-  - B12 x BonusMalus 100+: -0.659 (0.078)
-  - lbm x region slope group 1: -0.739 (0.066)
-  - lbm x region slope group 2: -0.284 (0.061)
-- **3 groups against 2 for region (flagged).** The 3-group form improved CV deviance by
-  0.000185, against 0.000181 for the 2-group form. That difference is far smaller than
-  the paired sd (about 0.00008 to 0.00009). D018 takes the larger improvement, so 3
-  groups were accepted. A parsimony tie-break would have chosen 2 groups and saved one
-  parameter. This is left as the rule dictates, and flagged for owner review.
+- **Tie-breaks.**
+  - At step 3, the 3-group form beat the linear form by a mean of 0.0000336, against a
+    paired sd of 0.0000494.
+  - At step 4, the 3-group form beat the 2-group form by 0.0000067, against a paired sd
+    of 0.0000508.
+  - Both are within noise, so the simpler form was taken each time. The owner asked for
+    the region switch, and the same rule also switched B12 to the linear form.
+- **Final GLM-B interaction coefficients** (`glm_b_coefficients.csv`; se in brackets,
+  relativity in square brackets):
+  - lbm x age under 30: +0.907 (0.108)
+  - age 55+ x BonusMalus above 50: +0.289 (0.035) [1.335]
+  - B12 x (BonusMalus - 50): -0.01078 (0.00111), a multiplier of 0.989 per BonusMalus
+    point above 50 for B12
+  - lbm x region slope group 1: -0.522 (0.053)
 
 **Result.**
 
 | Model | Parameters | CV deviance (sd) | Holdout deviance | Holdout Gini |
 |---|---|---|---|---|
 | GLM-A | 72 | 0.239260 (0.003246) | 0.242651 | 0.294 |
-| GLM-B | 78 | 0.238488 (0.003053) | 0.241874 | 0.303 |
+| GLM-B | 76 | 0.238534 (0.003023) | 0.241963 | 0.302 |
 | GBM | 565 trees | 0.237682 (0.003109) | 0.240744 | 0.316 |
 
-Gap closed: 49.0% on CV and 40.8% on holdout. The cap of 5 did not bind.
+Gap closed: 46.0% on CV and 36.1% on holdout. The cap of 5 did not bind.
 
 **Superseded runs.**
-- Run 1 was best-improvement-first over 9 candidates. It accepted B12 x lbm and the age
-  terms, closing 36.1%.
-- Run 2 was owner-ordered, with region conditional on density. It accepted the age and
-  B12 terms, closing 37.3%; region was not tested.
+- Run 1 was best-improvement-first over 9 candidates. It closed 36.1% on CV.
+- Run 2 was owner-ordered, with region conditional on density, and closed 37.3%.
+- Run 3 tested region unconditionally with no tie-break. It took the 3-group forms and
+  closed 49.0%.
 - The code implements only the current run.
 
 ## D028 B12 interaction under free exposure: ASSUMPTION on materiality
 
 - **Test.** Refit GLM-B's structure with log(exposure) as a free covariate instead of the
-  offset, and compare the interaction coefficients
-  (`reports/tables/interaction_exposure_check.csv`).
+  offset (`reports/tables/interaction_exposure_check.csv`).
 - **Evidence.**
-  - The log(exposure) coefficient in the free fit is 0.649.
-  - B12 x BM 51-99 moves from -0.301 to -0.262, a ratio of 0.870.
-  - B12 x BM 100+ moves from -0.659 to -0.566, a ratio of 0.860.
+  - The log(exposure) coefficient in the free fit is 0.648.
+  - The B12 x (BM - 50) coefficient moves by a ratio of 0.855.
   - B12 policies are shorter: mean exposure 0.39 against 0.57, and 40.2% under 0.25 years
     against 29.1%. They are also much newer: 46.3% of B12 vehicles are aged 0-1, against
     9.9% for other brands (`b12_profile.csv`).
 - **ASSUMPTION:** "shrinks materially" means a coefficient ratio below 0.75. This is my
   own threshold, not one set by the owner.
-- **Finding.** About 13.5% of the B12 effect (the mean of 1 - ratio) is associated with
-  short exposure, and the rest persists. The short-exposure hypothesis is not supported
-  as the main driver. The B12 profile (newer cars, shorter policies) fits a fleet, lease
-  or new-car channel, but brand labels are anonymised and this is not verifiable.
-- **Other terms.** The age terms change by factors of 0.93 and 1.06, and the region terms
-  by 0.96 and 0.97. None of them is an exposure artefact.
+- **Finding.** About 14.5% of the B12 effect is associated with short exposure, and the
+  rest persists. The short-exposure hypothesis is not supported as the main driver. The
+  B12 profile (newer cars, shorter policies) fits a fleet, lease or new-car channel, but
+  brand labels are anonymised and this is not verifiable.
+- **Other terms.** The age terms move by ratios of 0.933 and 1.055, and the region term
+  by 0.974.
 
 ## D029 BonusMalus x Region: condition dropped on evidence, and result
 
 - **Original condition.** The owner set step 4 to run only if BonusMalus x LogDensity
-  (step 2) was accepted. The aim was to test region only after density had had the
-  chance to explain the urban/rural part of the signal.
-- **Why it was dropped.** Step 2 was rejected (3.9% of gap). A diagnostic then added
-  density to the pre-region model anyway. The BonusMalus x Region residual statistic
-  went from 2.85 to 2.63 on the headline measure, with 19 significant cells against 6.2
-  expected; per cell, 2.22 to 2.04 (`region_bm_signal_by_step.csv`). The signal is not
-  explained by density, so the premise of the condition failed. The owner dropped the
-  condition on that evidence, and step 4 was tested on top of GLM-B under D018 as
-  normal.
+  (step 2) was accepted.
+- **Why it was dropped.** Step 2 was rejected (3.9%). As a diagnostic, density was added
+  to the pre-region model anyway: the BonusMalus x Region residual statistic moved only
+  from 2.97 to 2.76 (`region_bm_signal_by_step.csv`, headline measure, D030). The signal
+  is not explained by density. The owner dropped the condition on that evidence, and
+  step 4 was tested under D018 as normal.
 - **Method.** Inside each CV training set, fit the current model plus one log(BM/50)
   slope per region group (Centre as base). Order the regions by that slope, and cut
-  them into 2 or 3 groups of equal exposure, with the largest-exposure group as base.
-  The scoring fold never informs the grouping. Groupings differ slightly between folds,
-  because regions near a cut point move (`fold_groupings_identical` is False), but the
-  coefficient signs are stable across folds.
-- **Full-learn grouping** for the accepted 3-group form (`interaction_selection_log.csv`):
-  - **Group 1, flattest BonusMalus slope (-0.739):** Haute-Normandie, Ile-de-France,
-    Languedoc-Roussillon, Midi-Pyrenees, Nord-Est small, Nord-Pas-de-Calais, PACA + Corse.
-  - **Group 2 (-0.284):** Aquitaine, Bourgogne, Lorraine, Pays-de-la-Loire, Picardie,
-    Poitou-Charentes, Rhone-Alpes.
-  - **Group 3, base, steepest slope:** Auvergne + Limousin, Basse-Normandie, Bretagne,
-    Centre.
-- **Result.** Accepted: 11.7% of the gap, better in 5 of 5 folds, LRT p = 2e-28. The
-  residual statistic falls from 2.85 to 1.68. With density added after region it is
-  1.69, so density adds nothing once region is in.
-- **Interpretation.** The BonusMalus penalty is steepest in the rural west and centre,
-  and flattest in Ile-de-France, the Mediterranean south and the north. The data does
-  not show why. Regional differences in claims handling or bonus-malus practice are
-  possible, and are not tested. The grouping is response-derived, so it should be
+  them into groups of equal exposure, with the largest-exposure group as base. The
+  scoring fold never informs the grouping. Groupings differ slightly between folds
+  (`fold_groupings_identical` is False), but the coefficient signs are stable.
+- **Accepted 2-group form, full-learn grouping** (`interaction_selection_log.csv`):
+  - **Group 1, flatter BonusMalus slope, coefficient -0.522:** Aquitaine,
+    Haute-Normandie, Ile-de-France, Languedoc-Roussillon, Lorraine, Midi-Pyrenees,
+    Nord-Est small, Nord-Pas-de-Calais, PACA + Corse, Picardie, Rhone-Alpes.
+  - **Group 2, base:** Auvergne + Limousin, Basse-Normandie, Bourgogne, Bretagne,
+    Centre, Pays-de-la-Loire, Poitou-Charentes.
+- **Result.** 10.9% of the gap, better in 5 of 5 folds. The residual statistic falls from
+  2.97 to 2.01, and adding density afterwards gives 2.03.
+- **Interpretation.** The BonusMalus penalty is steepest in the rural west and centre.
+  The data does not show why. The grouping is response-derived, so it should be
   re-estimated on new data before use.
 
 ## D030 Two-way interaction statistic: df for tables with excluded cells
@@ -810,7 +808,7 @@ Gap closed: 49.0% on CV and 40.8% on holdout. The cap of 5 did not bind.
 | Frequency model | Learn | Holdout | Holdout excl. largest claim (4,075,400.56) |
 |---|---|---|---|
 | GLM-A | 1.0007 | 1.3036 | 0.9420 |
-| GLM-B | 1.0007 | 1.3029 | 0.9415 |
+| GLM-B | 1.0007 | 1.3030 | 0.9416 |
 
   Figures are actual / modelled.
 - **Learn.** Learn reconciles within 0.07%. The small excess comes from:
@@ -826,9 +824,146 @@ Gap closed: 49.0% on CV and 40.8% on holdout. The cap of 5 did not bind.
   - This is large-loss volatility in a 72k policy-year holdout, not a model bias. The
     split was not altered (owner instruction).
 - **Sensitivity** (`large_loss_sensitivity.csv`).
-  - At thresholds of 10,000, 20,000 and 50,000, the load is 0.4423, 0.3359 and 0.2228.
-  - Holdout actual / modelled is 1.3028, 1.3029 and 1.3032 including the largest claim,
-    and 0.9414, 0.9415 and 0.9417 excluding it.
-  - The threshold moves loss cost between the rated attritional part and the flat load,
-    but barely moves total reconciliation, because the load is calibrated on the same
-    learn losses. Detail is in LIMITATIONS.
+  - Total reconciliation does not depend on the threshold, by construction: the load is
+    calibrated on the same learn losses. The table therefore reports what does change.
+
+| Threshold | Learn claims above | Load | Load range across 5 learn folds | Share of burning cost in the flat load | Holdout attritional actual / modelled |
+|---|---|---|---|---|---|
+| 10,000 | 388 | 0.442 | 0.236 to 0.601 | 30.7% | 1.006 |
+| 20,000 | 170 | 0.336 | 0.159 to 0.497 | 25.1% | 1.008 |
+| 50,000 | 66 | 0.223 | 0.102 to 0.399 | 18.2% | 1.021 |
+
+  - A higher threshold puts less of the cost into the unrated flat load, but makes the
+    rated part less stable.
+
+---
+
+## Stage 6: Tariff
+
+## D034 Tariff construction and rebasing
+
+- **Structure.** Rate per policy-year = base rate x factor relativities x interaction
+  multipliers. Frequency relativities come from GLM-B. Severity relativities come from
+  the severity GLM, used for BonusMalus only: each BonusMalus band is mapped to its
+  3-level severity group. The (1 + load) factor is folded into the base rate. The
+  tariff is rebased so that learn premium equals learn recorded losses.
+- **Evidence** (`tariff_summary.csv`).
+  - The base rate is 108.48. That is base frequency 0.05236 x base severity 1,549.70 x
+    1.3359 x rebase 1.00069.
+  - Learn premium / learn losses = 1.000000. The test requires this within 0.1%.
+  - The GLM-A tariff (base rate 113.41) is built the same way, as the current premium
+    for Stage 7.
+- **Confidence intervals.** 95% CIs come from GLM standard errors. Severity standard
+  errors are approximate (D032). **ASSUMPTION:** the combined CIs treat the frequency and
+  severity estimates as independent.
+- **Interactions.** Interaction multipliers are tabulated at each band's
+  exposure-weighted mean BonusMalus, with delta-method CIs. The tariff applies them per
+  policy as (BM / 50)^coefficient, or as a per-point factor for B12.
+
+## D035 Effective relativities added to the tariff tables
+
+- **Why.** The fitted DrivAge relativities in GLM-B are below 1 for young drivers: 0.575
+  at 18-20 (`relativities_DrivAge_band.csv`). Young drivers have high BonusMalus (mean
+  94.0 at 18-20, `bm_by_driver_age.csv`), and their risk is priced mainly through the
+  BonusMalus relativities and the young-driver BonusMalus slope. Read on its own, the
+  fitted column would mislead a reviewer.
+- **Decision.** Every factor table adds an "effective" relativity: the mean tariff rate
+  in the level, divided by the mean in the base level, on the learn mix. For DrivAge
+  18-20 it is 3.312, against a fitted 0.575. It depends on the portfolio mix and is
+  shown for interpretation only. It is not a tariff parameter.
+
+## D036 Tariff against GBM: what the tariff leaves on the table
+
+From `tariff_vs_gbm_summary.csv` and
+`reports/figures/double_lift_tariff_vs_gbm_holdout.png`, on the holdout. The GBM-based
+premium is GBM frequency x the same severity x (1 + load), rebased to learn losses.
+Observed loss cost is capped amounts x (1 + load).
+
+- **Correlation.** Pearson 0.941 on rates (0.951 on log rates), Spearman 0.942.
+- **Disagreement.** 51.2% of policies are priced more than 10% apart.
+- **Lowest decile of tariff / GBM** (tariff cheapest relative to the GBM): observed /
+  premium is 1.248 for the tariff and 0.917 for the GBM.
+- **Highest decile:** 0.660 for the tariff and 0.909 for the GBM.
+- **Gini.** Holdout Gini on capped loss is 0.327 for the tariff and 0.338 for the GBM.
+
+The GBM is better calibrated exactly where the two disagree. That is the remaining
+54.0% of the CV deviance gap the 76-parameter tariff does not capture.
+
+## D037 Exposure control: GLM-B with log(exposure) as a free covariate
+
+- **Method.** Same structure as GLM-B, with log(exposure) as a covariate instead of an
+  offset. Policies are scored at exposure = 1 and rebased to the same learn total
+  (`tariff_exposure_control_relativities.csv`,
+  `tariff_exposure_control_premium_ratio.csv`). The fitted coefficient is 0.648.
+- **Evidence.** 16 of 75 relativities move by more than 5%:
+  - BonusMalus 66+ falls by 6% to 15% (100-110: 5.918 to 5.038).
+  - VehAge 0 falls from 0.952 to 0.834.
+  - B12 falls from 0.873 to 0.801.
+  - Six region levels fall by 5.5% to 12.1%.
+  - The young-driver BonusMalus slope multiplier falls from 2.478 to 2.332.
+- **Premium effect.** Exposure-weighted mean premium ratio (control / offset):
+  - 0.915 at DrivAge 18-20, rising steadily to 1.105 at 75+;
+  - 0.875 at BonusMalus 100-110, against 1.050 at 50.
+  - The 1st to 99th percentile of the policy ratio is 0.791 to 1.151.
+- **Reading.** Under the offset, part of the short-exposure claim excess (D022) is
+  priced into young-driver and high-BonusMalus relativities, the segments where short
+  exposure is concentrated. Treating exposure as a control would move about 8% to 12%
+  of premium from the youngest and highest-BonusMalus policies to older and
+  claim-free ones.
+- **Decision.** This is material. The main approach is unchanged, per the owner (offset
+  retained, D022). The comparison is reported in the README and LIMITATIONS.
+- **ASSUMPTION:** scoring at exposure = 1 is the correct basis for an annual quote.
+
+## D038 BonusMalus: importance, French CRM sensitivity, and age
+
+- **(a) Largest effect in GLM-A** (`glm_a_factor_importance.csv`). BonusMalus: its
+  relativity range (max / min) is 8.47. Removing it raises learn deviance by 4,416 on 10
+  df and CV deviance by 0.008125, worse in all 5 folds. That is 63% of GLM-A's CV gain
+  over intercept only. Next is DrivAge: range 1.95, learn deviance +699, 9.7% of the
+  gain. Every other factor is 3.5% or less.
+- **(b) CRM offset** (`bm_crm_offset_relativities.csv`, `bm_crm_sensitivity.csv`). GLM-B
+  is refitted with log(BM/100) as an offset and no fitted BonusMalus terms or
+  BonusMalus interactions.
+  - 27 of 61 other relativities move by more than 5%. Young-driver relativities rise
+    2.0 to 3.2 times at ages under 30 (18-20: 0.575 to 1.818). Dense-area relativities
+    (log density 6.5+) rise 5.7% to 9.1%. Eleven regions fall by 5.3% to 15.2%, and
+    Bourgogne rises 6.8%.
+  - CV deviance is 0.242636, worse than GLM-A at 0.239260.
+- **(c) Free coefficient on log(BM/100)**, with no other BonusMalus terms: 2.074 (se
+  0.031, 95% CI 2.013 to 2.136; z against 1 = 34.1). Claim frequency rises about with
+  the square of the CRM coefficient, so much more steeply than a premium that moves
+  one-for-one with it. CV deviance is 0.240683. The banded form is better.
+- **(d) DrivAge x BonusMalus.** Shares of exposure at BonusMalus 50
+  (`bm_by_driver_age.csv`):
+  - 6.1% at ages 18-20, and 2.5% to 4.9% across ages 21-29;
+  - 25.4% at 30-34, and 79.5% at 45-54.
+
+  Mean BonusMalus is 94.0 at 18-20 against 53.5 at 45-54.
+  - **ASSUMPTION:** BonusMalus follows the statutory scale: start at 100, down 5% a year
+    without claims, floor 50 (Code des assurances art. A121-1). That rule is cited from
+    general knowledge and not verified in this environment. Under it the floor takes
+    over a decade of claim-free driving.
+  - **Interpretation.** For most young drivers, BonusMalus measures years of experience
+    rather than claims. A high BonusMalus is normal for them, and the same level carries
+    a different risk at 25 and at 65. That is the DrivAge x BonusMalus interaction.
+  - **Contradiction of the stated premise.** The premise that young drivers cannot reach
+    50 is not fully supported: a minority of young drivers do sit at 50. That
+    contradicts the scale as stated, which suggests the recorded BonusMalus is not
+    always the driver's own record (for example a transferred or main-driver
+    coefficient). This cannot be checked from the data.
+- **(e)** A paragraph for LIMITATIONS and README is generated into
+  `reports/bonus_malus_note.md` by `src/tariff/sensitivities.py`.
+
+## D039 Non-monotone BonusMalus relativity at 61-65 (flagged, not changed)
+
+- **Finding.** The GLM-B frequency relativity for BonusMalus 61-65 is 3.036 (95% CI 2.861
+  to 3.222). That is above 66-70 (2.287, CI 2.118 to 2.469), 71-75 (2.701) and 76-80
+  (2.738), and level with 81-90 (3.004) (`relativities_BonusMalus_band.csv`). This
+  reproduces the learn one-way spike (D021).
+- **Options.**
+  1. Keep it, because it is credible: the CI does not overlap 66-70.
+  2. Constrain BonusMalus relativities to be monotone, or merge 61-65 with neighbouring
+     bands.
+  3. Investigate which BonusMalus values within 61-65 drive it. Not done.
+- **Decision.** Left as fitted, and flagged for owner review. A tariff that charges more
+  at 61-65 than at 66-80 would need a business justification before filing.

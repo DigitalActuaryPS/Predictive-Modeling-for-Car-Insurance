@@ -223,24 +223,27 @@ def run() -> dict:
 
 
 def threshold_sensitivity(cfg, pol, claims, glm_b, base, factors) -> pd.DataFrame:
-    """Large-loss load and holdout reconciliation at alternative thresholds, refitting the
-    attritional severity (same factors) at each one."""
+    """Per threshold: large claims, the flat load (learn and its range over the 5 learn
+    folds), the share of modelled learn burning cost carried by the flat load, and the
+    holdout reconciliation of the attritional (capped) part only. Total reconciliation is
+    not shown: the load is calibrated on the same learn losses, so it is invariant by
+    construction."""
     rows = []
     learn_claims = claims[~claims["holdout"]]
-    learn, hold = pol[~pol["holdout"]], pol[pol["holdout"]]
-    largest = claims.loc[claims["ClaimAmount"].idxmax(), "IDpol"]
+    hold = pol[pol["holdout"]]
     for u in cfg["cleaning"]["sensitivity_thresholds"]:
         sev = severity_frame(pol, claims, u)
         model = fit_severity(factors, base, sev[~sev["holdout"]])
-        load = float(learn_claims["ClaimAmount"].sub(u).clip(lower=0).sum() / learn_claims["ClaimAmount"].clip(upper=u).sum())
-        r_l = burning_cost_reconciliation(learn, glm_b.predict(learn), model.predict(learn), load, "learn")
-        r_h = burning_cost_reconciliation(hold, glm_b.predict(hold), model.predict(hold), load, "holdout")
-        r_x = burning_cost_reconciliation(hold, glm_b.predict(hold), model.predict(hold), load, "x", [largest])
-        rows.append({"threshold": u, "large_loss_load": load,
-                     "learn_claims_above": int((learn_claims["ClaimAmount"] > u).sum()),
-                     "learn_actual_over_modelled": r_l["actual_over_modelled"],
-                     "holdout_actual_over_modelled": r_h["actual_over_modelled"],
-                     "holdout_excl_largest_actual_over_modelled": r_x["actual_over_modelled"]})
+        x = learn_claims["ClaimAmount"]
+        load = float(x.sub(u).clip(lower=0).sum() / x.clip(upper=u).sum())
+        fold_loads = [float(g.sub(u).clip(lower=0).sum() / g.clip(upper=u).sum())
+                      for _, g in learn_claims.groupby("fold")["ClaimAmount"]]
+        capped_hold = claims.loc[claims["holdout"], "ClaimAmount"].clip(upper=u).sum()
+        modelled_att = float((hold["Exposure"] * glm_b.predict(hold) * model.predict(hold)).sum())
+        rows.append({"threshold": u, "learn_claims_above": int((x > u).sum()), "large_loss_load": load,
+                     "load_min_across_folds": min(fold_loads), "load_max_across_folds": max(fold_loads),
+                     "share_of_burning_cost_in_flat_load": load / (1 + load),
+                     "holdout_attritional_actual_over_modelled": float(capped_hold / modelled_att)})
     return pd.DataFrame(rows)
 
 

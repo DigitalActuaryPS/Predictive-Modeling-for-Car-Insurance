@@ -85,6 +85,27 @@ def evaluate(name, current_cv, current_full, cfg, base, accepted, learn, gap) ->
     return r, cv, full
 
 
+def choose_form(passing: list, step: int, log: list):
+    """D018 rule 6 (parsimony tie-break): start from the passing form with the largest mean
+    improvement; if a passing form with fewer parameters is worse by less than the sd of
+    the paired fold differences between the two forms, take it instead (fewest parameters
+    first)."""
+    best = max(passing, key=lambda x: x[0]["improvement_mean"])
+    chosen = best
+    for alt in sorted(passing, key=lambda x: (x[0]["n_params"], -x[0]["improvement_mean"])):
+        if alt is best or alt[0]["n_params"] >= best[0]["n_params"]:
+            continue
+        d = alt[1]["fold_deviance"] - best[1]["fold_deviance"]  # positive = alt worse
+        log.append({"step": step, "best_by_improvement": best[0]["candidate"], "best_n_params": best[0]["n_params"],
+                    "simpler_form": alt[0]["candidate"], "simpler_n_params": alt[0]["n_params"],
+                    "mean_paired_difference": d.mean(), "sd_paired_difference": d.std(ddof=1),
+                    "simpler_taken": bool(d.mean() < d.std(ddof=1))})
+        if d.mean() < d.std(ddof=1):
+            chosen = alt
+            break
+    return chosen
+
+
 def oof(learn, cv, n_folds):
     pred = np.full(len(learn), np.nan)
     for k in range(n_folds):
@@ -131,7 +152,7 @@ def run() -> dict:
 
     cv_a, cv_g = s3["cv"]["glm_a"], s3["cv"]["gbm"]
     gap = cv_a["mean"] - cv_g["mean"]
-    accepted, log_rows, steps, region_signal = [], [], [], []
+    accepted, log_rows, steps, region_signal, tiebreaks = [], [], [], [], []
     current_cv, current_full = cv_a, s3["glm_a"]
     min_cell = cfg["banding"]["min_band_exposure"] / 10
 
@@ -162,7 +183,7 @@ def run() -> dict:
         passing = [x for x in results if x[0]["passes"]]
         if not passing:
             continue
-        best, current_cv, current_full = max(passing, key=lambda x: x[0]["improvement_mean"])
+        best, current_cv, current_full = choose_form(passing, step, tiebreaks)
         accepted.append(best["candidate"])
         steps.append({"step": step, "accepted": best["candidate"], "pair": best["pair"],
                       "improvement_mean": best["improvement_mean"], "share_of_gap": best["share_of_gap"],
@@ -185,6 +206,7 @@ def run() -> dict:
     log.to_csv(tables / "interaction_selection_log.csv", index=False)
     pd.DataFrame(steps).to_csv(tables / "interaction_accepted.csv", index=False)
     pd.DataFrame(region_signal).to_csv(tables / "region_bm_signal_by_step.csv", index=False)
+    pd.DataFrame(tiebreaks).to_csv(tables / "interaction_parsimony_tiebreaks.csv", index=False)
     summ = pd.read_csv(tables / "two_way_ae_summary_glm_a.csv")
     nt = []
     for pair, (f1, f2) in NOT_TRANSLATED.items():

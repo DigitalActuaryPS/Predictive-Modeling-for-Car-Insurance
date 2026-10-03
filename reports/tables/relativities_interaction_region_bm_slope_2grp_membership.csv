@@ -1,0 +1,19 @@
+Region_grp,slope_group,is_base_group
+Aquitaine,1,False
+Auvergne + Limousin,2,True
+Basse-Normandie,2,True
+Bourgogne,2,True
+Bretagne,2,True
+Centre,2,True
+Haute-Normandie,1,False
+Ile-de-France,1,False
+Languedoc-Roussillon,1,False
+Lorraine,1,False
+Midi-Pyrenees,1,False
+"Nord-Est small (Als, Ch-Ard, F-Comte)",1,False
+Nord-Pas-de-Calais,1,False
+PACA + Corse,1,False
+Pays-de-la-Loire,2,True
+Picardie,1,False
+Poitou-Charentes,2,True
+Rhone-Alpes,1,False

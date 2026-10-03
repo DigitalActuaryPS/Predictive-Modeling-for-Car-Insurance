@@ -12,14 +12,14 @@ Two-way tables of observed claims against out-of-fold predictions on learn data.
 
 | Pair | vs GLM-A | vs GLM-B |
 |---|---|---|
-| DrivAge x BonusMalus | 5.79 | 3.29 |
-| BonusMalus x VehBrand | 3.58 | 0.98 |
-| BonusMalus x Region | 3.88 | 1.68 |
-| BonusMalus x LogDensity | 2.20 | 1.49 |
-| DrivAge x LogDensity | 0.82 | 0.88 |
-| VehAge x VehBrand | 1.80 | 1.76 |
-| DrivAge x VehPower | 1.52 | 1.51 |
-| DrivAge x Region | 0.99 | 1.22 |
+| DrivAge x BonusMalus | 5.79 | 3.30 |
+| BonusMalus x VehBrand | 3.58 | 1.18 |
+| BonusMalus x Region | 3.88 | 2.01 |
+| BonusMalus x LogDensity | 2.20 | 1.57 |
+| DrivAge x LogDensity | 0.82 | 0.85 |
+| VehAge x VehBrand | 1.80 | 1.77 |
+| DrivAge x VehPower | 1.52 | 1.49 |
+| DrivAge x Region | 0.99 | 1.16 |
 
 Rejected untested (no excess over noise): DrivAge x LogDensity (0.82; 1 significant cells, 4.4 expected); DrivAge x VehPower (1.52; 5 significant cells, 3.9 expected); DrivAge x Region (0.99; 2 significant cells, 6.9 expected).
 
@@ -28,19 +28,19 @@ Rejected untested (no excess over noise): DrivAge x LogDensity (0.82; 1 signific
 Accepted (forward selection, one pair at a time in an owner-set order, shared CV folds):
 
 - **young_lbm_senior_malus**: log(BM/50) slope shift for age <30; step for age 55+ with BM > 50 (2 params); 16.9% of the gap.
-- **b12_x_bm_3grp**: B12 x BM groups 51-99 and 100+, base 50 (2 params); 20.4% of the gap.
-- **region_bm_slope_3grp**: log(BM/50) slope by 3 region groups formed on residual slope (2 params); 11.7% of the gap.
+- **b12_x_bm_linear**: B12 x (BM - 50) (1 param); 18.2% of the gap.
+- **region_bm_slope_2grp**: log(BM/50) slope by 2 region groups formed on residual slope (1 param); 10.9% of the gap.
 
 Rejected or not tested:
 
 - bm_x_density: 3.9% of gap, below 5% floor.
-- b12_x_newcar: 3 of 5 folds; 2.3% of gap, below 5% floor.
-- Passed but beaten by a form of the same pair: b12_x_bm_linear, region_bm_slope_2grp.
+- b12_x_newcar: 3 of 5 folds; 2.4% of gap, below 5% floor.
+- Passed; a simpler form within one paired fold sd was taken (tie-break): b12_x_bm_3grp, region_bm_slope_3grp.
 
 ## Share of GBM lift captured
 
-GLM-B closes 49.0% of the CV deviance gap between GLM-A and the GBM (40.8% on holdout) with 6 extra parameters. Holdout Gini: GLM-A 0.294, GLM-B 0.303, GBM 0.316. BonusMalus x Region residual statistic: 3.88 under GLM-A, 2.85 before the region term (2.63 if density is added instead), 1.68 after it.
+GLM-B closes 46.0% of the CV deviance gap between GLM-A and the GBM (36.1% on holdout) with 4 extra parameters. Holdout Gini: GLM-A 0.294, GLM-B 0.302, GBM 0.316. BonusMalus x Region residual statistic: 3.88 under GLM-A, 2.97 before the region term (2.76 if density is added instead), 2.01 after it.
 
 ## B12 and short exposure
 
-B12 policies are shorter (mean exposure 0.39 against 0.57) and newer (46.3% aged 0-1 against 9.9%). Refitting GLM-B with log(exposure) as a free covariate moves the B12 coefficients by a factor of 0.87 and 0.86. About 13.5% of the B12 effect is associated with short exposure; the rest persists.
+B12 policies are shorter (mean exposure 0.39 against 0.57) and newer (46.3% aged 0-1 against 9.9%). Refitting GLM-B with log(exposure) as a free covariate moves the B12 coefficients by a factor of 0.85. About 14.5% of the B12 effect is associated with short exposure; the rest persists.

@@ -29,3 +29,5 @@ def test_sensitivity_thresholds(cfg):
     sens = pd.read_csv(cfg["paths"]["tables"] / "large_loss_sensitivity.csv")
     assert sorted(sens["threshold"]) == sorted(cfg["cleaning"]["sensitivity_thresholds"])
     assert sens["large_loss_load"].is_monotonic_decreasing
+    assert (sens["load_min_across_folds"] <= sens["large_loss_load"]).all()
+    assert (sens["large_loss_load"] <= sens["load_max_across_folds"]).all()
