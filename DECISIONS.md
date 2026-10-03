@@ -732,3 +732,102 @@ Gap closed: 49.0% on CV and 40.8% on holdout. The cap of 5 did not bind.
 - **Rationale.** Under the owner's condition ("use the df-adjusted figure if the null
   pairs move closer to 1"), the excluded-cell form qualifies and the (r-1)(c-1) form
   does not. All three statistics are kept in the tables, for transparency.
+
+---
+
+## Stage 5: Severity and burning cost
+
+## D031 Severity model: Gamma GLM with a 3-level BonusMalus only
+
+- **Set-up.** One row per policy with at least one claim. The response is average
+  attritional severity: claim amounts capped at 20,000, divided by the number of claim
+  records. The weight is the number of claim records. Gamma family, log link, on the
+  same CV folds. Learn has 19,893 policies and 21,071 claims; the holdout has 5,051
+  and 5,373 (`severity_residual_summary.csv`).
+- **Selection.** Forward selection over the frequency factors, plus a severity-only
+  coarse BonusMalus (50, 51-99, 100+). A factor enters only if:
+  - it improves Gamma CV deviance in all 5 folds;
+  - the mean paired improvement exceeds the paired sd;
+  - **ASSUMPTION (sense check):** at least half of its non-base levels have a 95% CI
+    that excludes 1. This is my own credibility threshold.
+  Only one form of BonusMalus may enter. Evidence: `severity_selection_log.csv`.
+  - **Banded BonusMalus (11 levels).** It passes the CV rules (improvement 0.001675, sd
+    0.000875, 5 of 5 folds) but fails the sense check. Only 30% of its levels are
+    credibly different from 1, and the relativities are not monotone.
+  - **Coarse BonusMalus (3 levels).** Improvement 0.001807, sd 0.000778, 5 of 5 folds,
+    and both levels credible. Accepted.
+  - **Nothing else enters.** Every other factor improves in at most 3 of 5 folds, in
+    both rounds.
+- **Result.** In `severity_model_comparison.csv` and `severity_coefficients.csv`:
+
+| Severity model | CV Gamma deviance (sd) | Holdout Gamma deviance |
+|---|---|---|
+| Intercept only | 1.038046 (0.038359) | 0.987231 |
+| GLM, coarse BonusMalus | 1.036239 (0.038337) | 0.986332 |
+
+  The relativities are 1.045 for BonusMalus 51-99 (95% CI 1.001 to 1.091) and 1.159 for
+  100+ (1.078 to 1.246). The dispersion estimate is 2.307.
+- **Why severity is simpler than frequency.**
+  - **Volume.** 19,893 claim policies against 541,840 policies.
+  - **Noise.** The fold-to-fold sd of severity CV deviance is about 3.7% of its mean,
+    against about 1.4% for frequency.
+  - **Fixed-amount claims.** 37.2% of claims are paid at one of three fixed amounts
+    (D012), which damps any risk signal in severity.
+  - **The first banded fit was rejected.** Holdout deviance got worse with banded
+    BonusMalus (0.988201 against 0.987231 for intercept only, in the first fit before
+    the sense check was added), which suggests overfitting.
+- **Alternative not taken.** A severity GBM, which the brief makes optional. With this
+  little signal in severity, it would not change the tariff.
+
+## D032 Gamma residual check given the IRSA fixed amounts
+
+- **Evidence.** `severity_residual_summary.csv` and
+  `reports/figures/severity_residuals_learn_oof.png`. The learn figures are
+  out-of-fold.
+  - **Fixed-amount policies.** 35.9% of learn claim policies have a single claim at one
+    of the three fixed amounts. Their deviance residuals form a spike near -0.3. Their
+    mean residual is -0.299, against -0.373 for all other policies.
+  - **Shape.** Residual skew is 1.29, and 1.6% of absolute residuals exceed 3.
+  - **Calibration.** Claim-weighted deciles of predicted severity have A/E from 0.947 to
+    1.046 out-of-fold on learn, and 0.867 to 1.086 on holdout, where each decile holds
+    about 537 claims.
+- **Finding.** The distribution is clearly not Gamma: it has a mass point. That affects
+  the variance assumption, so the severity standard errors and CIs are approximate,
+  even though they are scaled by the Pearson dispersion. The mean model is calibrated,
+  and fixed-amount policies show no systematic residual offset against other policies.
+  The residuals are therefore not "clearly poor" for a mean model, and no separate
+  mass-point model is proposed.
+
+## D033 Burning cost and reconciliation
+
+- **Definition.** Burning cost per policy = exposure x frequency (GLM) x attritional
+  severity x (1 + load). The load is 0.3359: the learn excess over 20,000 divided by
+  learn capped losses.
+- **Reconciliation.** Actual is all recorded claim amounts. From
+  `burning_cost_reconciliation.csv`:
+
+| Frequency model | Learn | Holdout | Holdout excl. largest claim (4,075,400.56) |
+|---|---|---|---|
+| GLM-A | 1.0007 | 1.3036 | 0.9420 |
+| GLM-B | 1.0007 | 1.3029 | 0.9415 |
+
+  Figures are actual / modelled.
+- **Learn.** Learn reconciles within 0.07%. The small excess comes from:
+  - the frequency count cap: modelled claims are 21,056 against 21,071 recorded (D009);
+  - the Gamma GLM, which is not exactly balanced in total.
+  Stage 6 rebases the tariff to learn actual.
+- **Holdout.**
+  - The attritional part reconciles: modelled 8.44m against actual 8.49m excluding the
+    largest claim.
+  - The gap is all in large losses. Including the 4.08m claim, actual is 30% above
+    modelled. Excluding it, actual is 6% below, because the other holdout large claims
+    come to less than the flat load allows for.
+  - This is large-loss volatility in a 72k policy-year holdout, not a model bias. The
+    split was not altered (owner instruction).
+- **Sensitivity** (`large_loss_sensitivity.csv`).
+  - At thresholds of 10,000, 20,000 and 50,000, the load is 0.4423, 0.3359 and 0.2228.
+  - Holdout actual / modelled is 1.3028, 1.3029 and 1.3032 including the largest claim,
+    and 0.9414, 0.9415 and 0.9417 excluding it.
+  - The threshold moves loss cost between the rated attritional part and the flat load,
+    but barely moves total reconciliation, because the load is calibrated on the same
+    learn losses. Detail is in LIMITATIONS.

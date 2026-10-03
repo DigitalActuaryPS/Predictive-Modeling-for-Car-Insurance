@@ -27,7 +27,19 @@ def severity_frame(policies: pd.DataFrame, claims: pd.DataFrame, threshold: floa
     agg = c.groupby("IDpol").agg(n_claims=("ClaimAmount", "size"), capped_total=("capped", "sum"))
     out = policies.merge(agg, left_on="IDpol", right_index=True, how="inner")
     out["avg_sev"] = out["capped_total"] / out["n_claims"]
-    return out
+    return add_severity_features(out)
+
+
+def add_severity_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Severity-only coarse grouping of BonusMalus: 50 (floor), 51-99 (bonus), 100+ (malus)."""
+    df = df.copy()
+    df["BonusMalus_sev3"] = pd.Categorical(
+        np.select([df["BonusMalus"] == 50, df["BonusMalus"] < 100], ["50", "51-99"], "100+"), categories=["50", "51-99", "100+"])
+    return df
+
+
+SEV_EXTRA_FACTORS = {"BonusMalus_sev3": "50"}  # coarse severity-only grouping, base 50
+CREDIBLE_SHARE = 0.5  # sense check: share of non-base levels whose 95% CI excludes 1
 
 
 def fit_severity(factors: list, base: dict, df: pd.DataFrame):
@@ -48,20 +60,27 @@ def cv_severity(factors, base, sev, n_folds) -> dict:
 
 def forward_select(candidates: list, base: dict, sev: pd.DataFrame, n_folds: int) -> tuple[list, pd.DataFrame]:
     """Add the factor with the largest mean paired CV improvement while it improves in
-    every fold and the mean improvement exceeds the sd of the paired differences."""
+    every fold, the mean improvement exceeds the sd of the paired differences, and the
+    relativities are credible (at least half of the non-base levels have a 95% CI that
+    excludes 1 on the full-learn fit). Only one form of BonusMalus may enter."""
     chosen, rows = [], []
     current = cv_severity([], base, sev, n_folds)
     step = 0
     while True:
         step += 1
         results = []
-        for f in [c for c in candidates if c not in chosen]:
+        bm_in = any(c.startswith("BonusMalus") for c in chosen)
+        for f in [c for c in candidates if c not in chosen and not (bm_in and c.startswith("BonusMalus"))]:
             cv = cv_severity(chosen + [f], base, sev, n_folds)
             diff = current["fold_deviance"] - cv["fold_deviance"]
+            t = fit_severity(chosen + [f], base, sev).table()
+            t = t[t["term"].str.startswith(f"{f}[")]
+            credible = float(((t["rel_lower_95"] > 1) | (t["rel_upper_95"] < 1)).mean())
             r = {"step": step, "factor": f, "cv_deviance_mean": cv["mean"], "improvement_mean": diff.mean(),
                  "improvement_sd": diff.std(ddof=1), "folds_improved": int((diff > 0).sum()),
-                 "relative_improvement": diff.mean() / current["mean"]}
-            r["passes"] = bool(r["folds_improved"] == n_folds and r["improvement_mean"] > r["improvement_sd"])
+                 "relative_improvement": diff.mean() / current["mean"], "share_levels_ci_excludes_1": credible}
+            r["passes_cv"] = bool(r["folds_improved"] == n_folds and r["improvement_mean"] > r["improvement_sd"])
+            r["passes"] = bool(r["passes_cv"] and credible >= CREDIBLE_SHARE)
             results.append((r, cv))
         rows.extend(r for r, _ in results)
         passing = [x for x in results if x[0]["passes"]]
@@ -141,7 +160,7 @@ def run() -> dict:
     tables, figures, processed = (cfg["paths"][k] for k in ("tables", "figures", "processed"))
     u = cfg["cleaning"]["large_loss_threshold"]
     n_folds = cfg["split"]["n_folds"]
-    pol = pd.read_parquet(processed / "policies_banded.parquet")
+    pol = add_severity_features(pd.read_parquet(processed / "policies_banded.parquet"))
     claims = pd.read_parquet(processed / "claims.parquet")
     base = pd.read_csv(tables / "base_levels.csv").set_index("factor")["base_level"].to_dict()
     with open(processed / "models" / "frequency_stage3.pkl", "rb") as fh:
@@ -153,7 +172,8 @@ def run() -> dict:
     sev = severity_frame(pol, claims, u)
     sev_l, sev_h = sev[~sev["holdout"]], sev[sev["holdout"]]
 
-    factors, sel = forward_select(cfg["glm"]["factors"], base, sev_l, n_folds)
+    base = {**base, **SEV_EXTRA_FACTORS}
+    factors, sel = forward_select(cfg["glm"]["factors"] + list(SEV_EXTRA_FACTORS), base, sev_l, n_folds)
     sel.to_csv(tables / "severity_selection_log.csv", index=False)
     cv_sev = cv_severity(factors, base, sev_l, n_folds)
     cv_0 = cv_severity([], base, sev_l, n_folds)

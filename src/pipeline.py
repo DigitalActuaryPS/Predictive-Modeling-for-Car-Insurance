@@ -4,7 +4,7 @@ import time
 from src.data import clean
 from src.features import banding
 from src.interactions import glm_revision, narrative, shap_interactions
-from src.models import frequency
+from src.models import frequency, severity
 
 
 def main() -> None:
@@ -15,6 +15,7 @@ def main() -> None:
         ("stage 4a: SHAP interactions", shap_interactions.run),
         ("stage 4b: GLM revision", glm_revision.run),
         ("stage 4c: interaction narrative", narrative.write),
+        ("stage 5: severity and burning cost", severity.run),
     ]
     for name, fn in stages:
         t = time.perf_counter()

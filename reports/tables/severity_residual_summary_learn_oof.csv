@@ -1,0 +1,2 @@
+dataset,policies,claims,share_policies_single_fixed_amount_claim,deviance_residual_mean,deviance_residual_sd,deviance_residual_skew,share_abs_residual_gt_3,residual_mean_fixed_amount_policies,residual_mean_other_policies,calibration_ae_min,calibration_ae_max,fixed_amounts_used
+learn_oof,19893,21071,0.35861860956115216,-0.3462619796599027,0.988653381112551,1.285106731734809,0.016387674056200674,-0.29919063451152444,-0.37258120344613443,0.9470651799596699,1.0458362753257762,1204.00; 1128.12; 1172.00
