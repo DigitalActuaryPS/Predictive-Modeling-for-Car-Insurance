@@ -1,0 +1,2 @@
+learning_rate,num_leaves,min_data_in_leaf,feature_fraction,lambda_l2,n_rounds,chosen_trial
+0.03,15,1000,0.8,0.0,565,3

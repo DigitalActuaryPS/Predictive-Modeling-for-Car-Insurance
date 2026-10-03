@@ -384,3 +384,96 @@ selection.
 Each accepted interaction's share of the gap closed,
 (improvement / (GLM-A CV deviance - GBM CV deviance)), is reported per interaction and
 cumulatively.
+
+---
+
+## Stage 3: Frequency models
+
+## D019 Deviance convention
+
+- **Decision.** Every model is scored with the mean Poisson unit deviance per policy,
+  computed on claim counts. Predicted counts are exposure x predicted frequency, and no
+  weights are applied (`src/evaluation/metrics.py::poisson_deviance`). This is
+  identical to the exposure-weighted deviance on frequencies divided by the number of
+  policies, because Poisson deviance is homogeneous of degree one. Exposure weights are
+  never applied on top of the count deviance.
+- **Gini.** Policies are sorted by predicted frequency, and the Lorenz curve plots
+  cumulative exposure share against cumulative claim share; Gini = 1 - 2 x the area
+  under that curve. It measures ranking only, so it ignores calibration.
+
+## D020 GBM design and tuning
+
+- **Features.** Raw DrivAge, VehAge, VehPower, BonusMalus and LogDensity; VehGas as 0/1;
+  VehBrand and Region ungrouped (11 and 22 levels) and frequency-rank encoded per D006.
+  Area is excluded (D015). The GBM sees the unbanded data, so it is a fair upper
+  benchmark for what the rating information can support.
+- **Objective.** Poisson, with label ClaimNb / Exposure and weight Exposure (see the
+  module docstring for why this equals a count model with exposure as time at risk).
+  Squared-error loss is never used.
+- **CV scheme.** To score fold k, the model trains on three folds and early-stops on fold
+  (k+1) mod 5, so the scoring fold never drives early stopping. The frequency-rank
+  encoder is fitted on the three training folds only (`tests/test_gbm.py`). The holdout
+  is not touched.
+- **Search.** 24 random draws without replacement from a 324-point grid: learning rate
+  {0.03, 0.05, 0.1}, num_leaves {15, 31, 63}, min_data_in_leaf {200, 500, 1000, 2000},
+  feature_fraction {0.6, 0.8, 1.0} and lambda_l2 {0, 1, 10}. Early-stopping patience is
+  100 rounds.
+- **Evidence.** In `reports/tables/gbm_tuning.csv`, CV deviance across all 24 trials
+  ranges from 0.237720 to 0.238125. The search is insensitive within this grid. The
+  best is trial 3: learning rate 0.03, 15 leaves, min_data_in_leaf 1000,
+  feature_fraction 0.8, lambda_l2 0 (`gbm_chosen.csv`).
+- **Final rounds.** The final model uses 565 rounds, the mean best iteration of trial 3
+  across the five tuning folds. **ASSUMPTION:** this round count, found with three
+  folds of training data, is not rescaled for the larger training sets used afterwards.
+  More data usually supports slightly more rounds, so the final GBM is if anything
+  slightly under-fitted, which is the conservative direction for the benchmark.
+- **Reported GBM CV.** To match the GLMs, the reported GBM CV deviance retrains on four
+  folds with the fixed 565 rounds and scores the fifth: 0.237682 (sd 0.003109). The
+  hyperparameters were chosen on the same folds, so this figure is slightly optimistic.
+  The holdout deviance (0.240744) is the unbiased comparison.
+
+## D021 Monotone constraint: GBM increasing in BonusMalus
+
+- **Decision.** The GBM's prediction must not decrease as BonusMalus rises, holding the
+  other features fixed. A test checks this on a 50 to 230 grid for 200 policies.
+- **Rationale.** BonusMalus is the insurer's own claims-history score: higher means
+  worse history. A price that falls as history worsens cannot be explained to
+  customers or a regulator, and it breaks the incentive the BonusMalus system exists to
+  create.
+- **Evidence the constraint costs little.** Above 100 the one-way is noisy but rising
+  (`oneway_raw_BonusMalus.csv`), with frequency 0.2 to 0.65 on thin exposure. The
+  learn one-way has a non-monotone local spike at 61-65 (frequency 0.136, against 0.068
+  at 56-60 and 0.095 at 66-70). The unconstrained alternative would fit such spikes.
+  The GLM keeps BonusMalus as an unconstrained banded factor, and Stage 6 reviews the
+  tariff's BonusMalus relativities against this.
+
+## D022 Exposure proportionality (diagnostic; main approach unchanged)
+
+- **Test.** Refit GLM-A with log(exposure) as a free covariate instead of an offset.
+- **Evidence** (`reports/tables/log_exposure_diagnostic.csv`). The coefficient is 0.641
+  (se 0.0098, 95% CI 0.622 to 0.660), and the z-test of coefficient = 1 gives -36.7. As
+  a free covariate, CV deviance is 0.237128 (sd 0.003151), against 0.239260 for GLM-A
+  with the offset.
+- **Interpretation.** Claims grow far less than proportionally with time on risk, so
+  short-exposure policies claim at a much higher annual rate (D008). The likely cause is
+  informative exposure: policies cancelled mid-term after a claim, such as a write-off,
+  end up with short exposure because of the claim. Lapse dates and reasons are not in
+  the data, so this is not verified.
+- **Why the main approach is unchanged.**
+  - The free exposure coefficient is not a rating factor. Each policy is quoted for a
+    full year before its exposure is known.
+  - GLM-A, GLM-B and the GBM all treat exposure as proportional (offset or weight). The
+    GLM-to-GBM comparison is therefore like for like.
+  - The project owner asked to be told before any change in approach.
+- **Material consequence.** Exposure alone lowers CV deviance by 0.002132 (0.239260
+  minus 0.237128). That is more than the whole GLM-A to GBM gap of 0.001578 (0.239260
+  minus 0.237682). A large share of the remaining deviance therefore reflects
+  short-exposure policies the offset cannot represent, not missing risk
+  differentiation. Stage 4's "gap closed" percentages are measured against the
+  GLM-A to GBM gap only, which is the correct like-for-like denominator, but they should
+  not be read as a share of all explainable deviance.
+- **Pricing effect.** The offset model's annual rate averages over the current mix of
+  short and full-year exposures. Rebasing the tariff to actual learn losses (Stage 6)
+  fixes the overall level for that mix. A book with more full-year policies would be
+  overcharged by an amount this data cannot quantify without lapse information.
+  Recorded in LIMITATIONS.

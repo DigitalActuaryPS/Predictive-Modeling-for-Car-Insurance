@@ -89,3 +89,55 @@ def bar_line(table: pd.DataFrame, x: str, bar: str, lines: dict, path: Path, tit
     ax.set_title(title)
     ax.legend(loc="upper left", frameon=False)
     return save(fig, path)
+
+
+def lift_plot(tables: dict, path: Path, title: str) -> Path:
+    """Decile lift: observed vs predicted frequency per equal-exposure decile, one panel per model."""
+    fig, axes = plt.subplots(1, len(tables), figsize=(5 * len(tables), 3.6), sharey=True)
+    axes = np.atleast_1d(axes)
+    for ax, (name, (t, color)) in zip(axes, tables.items()):
+        ax.plot(t["bin"], t["observed_frequency"], "o-", color=COLORS["obs"], ms=4, label="observed")
+        ax.plot(t["bin"], t["predicted_frequency"], "s--", color=color, ms=4, label="predicted")
+        ax.set_xlabel("decile of predicted frequency")
+        ax.set_title(name)
+        ax.set_xticks(t["bin"])
+        ax.legend(frameon=False)
+    axes[0].set_ylabel("claim frequency")
+    fig.suptitle(title)
+    return save(fig, path)
+
+
+def double_lift_plot(t: pd.DataFrame, name_a: str, name_b: str, color_a: str, color_b: str, path: Path, title: str) -> Path:
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    ax.plot(t["bin"], t["observed_frequency"], "o-", color=COLORS["obs"], ms=4, label="observed")
+    ax.plot(t["bin"], t["pred_a_frequency"], "s--", color=color_a, ms=4, label=name_a)
+    ax.plot(t["bin"], t["pred_b_frequency"], "^--", color=color_b, ms=4, label=name_b)
+    ax.set_xticks(t["bin"])
+    ax.set_xlabel(f"decile of {name_a} / {name_b} prediction ratio")
+    ax.set_ylabel("claim frequency")
+    ax.set_title(title)
+    ax.legend(frameon=False)
+    return save(fig, path)
+
+
+def ae_grid(ae: pd.DataFrame, models: dict, path: Path, title: str) -> Path:
+    """A/E by level, one panel per factor. models maps model name -> (ae column, color)."""
+    factors = list(dict.fromkeys(ae["factor"]))
+    ncol = 2
+    nrow = int(np.ceil(len(factors) / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(12, 2.8 * nrow))
+    for ax, f in zip(axes.flat, factors):
+        t = ae[ae["factor"] == f]
+        pos = np.arange(len(t))
+        for name, (col, color) in models.items():
+            ax.plot(pos, t[col], "o-", ms=3, color=color, label=name)
+        ax.axhline(1.0, color=COLORS["other"], lw=0.8)
+        ax.set_xticks(pos)
+        ax.set_xticklabels(t["level"].astype(str), rotation=60, ha="right", fontsize=7)
+        ax.set_title(f, fontsize=9)
+        ax.set_ylabel("A/E")
+    for ax in list(axes.flat)[len(factors):]:
+        ax.axis("off")
+    axes.flat[0].legend(frameon=False)
+    fig.suptitle(title)
+    return save(fig, path)

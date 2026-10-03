@@ -29,3 +29,20 @@ def processed(cfg):
     if not (path / "policies.parquet").exists():
         pytest.fail("processed data missing: run `make all` first")
     return {"policies": pd.read_parquet(path / "policies.parquet"), "claims": pd.read_parquet(path / "claims.parquet")}
+
+
+@pytest.fixture(scope="session")
+def stage3(cfg):
+    import pickle
+
+    path = cfg["paths"]["processed"] / "models" / "frequency_stage3.pkl"
+    if not path.exists():
+        pytest.fail("stage 3 models missing: run `make all` first")
+    with open(path, "rb") as fh:
+        return pickle.load(fh)
+
+
+@pytest.fixture(scope="session")
+def banded(cfg):
+    p = pd.read_parquet(cfg["paths"]["processed"] / "policies_banded.parquet")
+    return p[~p["holdout"]], p[p["holdout"]]

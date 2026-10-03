@@ -72,3 +72,17 @@ glm:
   factors: [DrivAge_band, VehAge_band, VehPower_band, BonusMalus_band, LogDensity_band, VehBrand_grp, Region_grp, VehGas]
   tol: 1.0e-10
   max_iter: 50
+
+gbm:
+  features: [DrivAge, VehAge, VehPower, BonusMalus, LogDensity, VehGas, VehBrand, Region]
+  rank_encoded: [VehBrand, Region]   # frequency-rank encoding fitted on training rows only (D006)
+  monotone_increasing: [BonusMalus]  # see DECISIONS D020
+  max_rounds: 5000
+  early_stopping_rounds: 100
+  n_trials: 24                       # random draws (without replacement) from the 324-point grid below
+  grid:
+    learning_rate: [0.03, 0.05, 0.1]
+    num_leaves: [15, 31, 63]
+    min_data_in_leaf: [200, 500, 1000, 2000]
+    feature_fraction: [0.6, 0.8, 1.0]
+    lambda_l2: [0.0, 1.0, 10.0]
