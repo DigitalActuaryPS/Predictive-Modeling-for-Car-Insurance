@@ -440,12 +440,16 @@ cumulatively.
   worse history. A price that falls as history worsens cannot be explained to
   customers or a regulator, and it breaks the incentive the BonusMalus system exists to
   create.
-- **Evidence the constraint costs little.** Above 100 the one-way is noisy but rising
-  (`oneway_raw_BonusMalus.csv`), with frequency 0.2 to 0.65 on thin exposure. The
-  learn one-way has a non-monotone local spike at 61-65 (frequency 0.136, against 0.068
-  at 56-60 and 0.095 at 66-70). The unconstrained alternative would fit such spikes.
-  The GLM keeps BonusMalus as an unconstrained banded factor, and Stage 6 reviews the
-  tariff's BonusMalus relativities against this.
+- **Evidence the constraint costs little.**
+  - The banded learn one-way (`reports/tables/oneway_band_BonusMalus_band.csv`) rises
+    from 0.0510 at 50 to 0.2199 at 100-110 and 0.3817 at 111+.
+  - Above 100, single values with more than 50 policy-years range from 0.264 to 0.480 in
+    frequency (`oneway_raw_BonusMalus.csv`), on thin exposure. All values above 100
+    together total 2,867.4 policy-years.
+  - The one exception to a rising trend is a local spike at 61-65: 0.1365, against
+    0.0823 at 56-60 and 0.0948 at 66-70. An unconstrained model would fit such spikes.
+  - The GLM keeps BonusMalus as an unconstrained banded factor, and Stage 6 reviews the
+    tariff's BonusMalus relativities against this.
 
 ## D022 Exposure proportionality (diagnostic; main approach unchanged)
 
