@@ -12,3 +12,20 @@ data:
     freMTPL2freq: https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2freq.rda
     freMTPL2sev: https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2sev.rda
   description_url: https://raw.githubusercontent.com/dutangc/CASdatasets/master/DESCRIPTION
+  # Historical releases of the two files in the CASdatasets git history, compared by
+  # src/data/versions.py (not part of `make all`; needs network access to GitHub).
+  history:
+    raw_base: https://raw.githubusercontent.com/dutangc/CASdatasets
+    releases:
+      - {commit: c49cbbb37235fc49616cac8ccac32e1491cdc619, date: 2017-01-19, dir: data, description: "add dataset files"}
+      - {commit: 9aa07b9d7f07c6d877674decc95503bf1f0fd8c5, date: 2017-01-21, dir: pkg/data, description: "resave data file 7"}
+      - {commit: 4511e99ee6c30ce60ec78e7ebe41f366f4f46975, date: 2020-11-16, dir: pkg/data, description: "new data files"}
+      - {commit: 531aa236fc344c1d16bfb26e6fd453299aa2cea5, date: 2022-06-23, dir: pkg/data, description: "update to remove inconsistencies"}
+      - {commit: 8a37c3c34990260d5ac374e3b0e0271b2f076413, date: 2024-09-17, dir: data, description: "bug fix in Region"}
+
+shap:
+  # Stage 4 subsample size = min(sample_size_max, runtime_budget_seconds / expected cost per row),
+  # with the cost per row scaled from reports/tables/shap_runtime_benchmark.csv by the tuned
+  # model's tree count (TreeSHAP interaction cost is linear in rows and in trees).
+  sample_size_max: 20000
+  runtime_budget_seconds: 900

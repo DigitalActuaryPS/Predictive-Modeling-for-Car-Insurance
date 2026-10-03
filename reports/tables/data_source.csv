@@ -1,0 +1,3 @@
+file,source,casdatasets_version,retrieved,rows,idpol_raw_unique_labels,idpol_parsed_unique,sha256,url
+freMTPL2freq,"CASdatasets (dutangc/CASdatasets, master branch)",1.2-1,2026-10-03,677991,677991,677991,82c8598513d9fa78226b6c7d271a9940eca4b8083e9e32320a75d377bdfe15a3,https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2freq.rda
+freMTPL2sev,"CASdatasets (dutangc/CASdatasets, master branch)",1.2-1,2026-10-03,26444,24944,24944,78e6e5016ae046603b37e88ff8ad8ca327f5d59f827c1f75d140388de09b14b3,https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2sev.rda

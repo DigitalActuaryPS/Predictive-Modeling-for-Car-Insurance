@@ -45,9 +45,23 @@ def _sha256(path) -> str:
     return h.hexdigest()
 
 
-def _to_int_id(s: pd.Series) -> pd.Series:
-    # IDpol factor labels are R-formatted numbers, some in scientific notation ("1e+05")
-    return pd.to_numeric(s.astype(str)).round().astype("int64")
+def parse_idpol(raw: pd.Series) -> tuple[pd.Series, int]:
+    """Convert IDpol (an R factor whose labels are R-formatted numbers, some in
+    scientific notation such as "1e+05") to int64.
+
+    Fails if any label is not an exact integer or if two distinct raw labels parse
+    to the same integer (a collision from R number formatting). Returns the parsed
+    series and the number of distinct raw labels.
+    """
+    labels = raw.astype(str)
+    n_raw_unique = labels.nunique()
+    as_float = pd.to_numeric(labels)
+    if not ((as_float == as_float.round()) & (as_float.abs() < 2**53)).all():
+        raise ValueError("IDpol labels that are not exact integers")
+    parsed = as_float.round().astype("int64")
+    if parsed.nunique() != n_raw_unique:
+        raise ValueError(f"IDpol collision: {n_raw_unique} raw labels -> {parsed.nunique()} integers")
+    return parsed, n_raw_unique
 
 
 def download(force: bool = False) -> dict:
@@ -56,7 +70,9 @@ def download(force: bool = False) -> dict:
     raw.mkdir(parents=True, exist_ok=True)
     meta_path = raw / "source_metadata.json"
     if meta_path.exists() and not force:
-        return json.loads(meta_path.read_text())
+        meta = json.loads(meta_path.read_text())
+        write_source_table(meta, cfg)
+        return meta
 
     meta = {"source": cfg["data"]["source"], "retrieved": date.today().isoformat(), "files": {}}
     with urllib.request.urlopen(cfg["data"]["description_url"]) as resp:
@@ -69,11 +85,40 @@ def download(force: bool = False) -> dict:
         if force or not rda.exists():
             urllib.request.urlretrieve(url, rda)
         df = read_rda(rda)[name]
-        df["IDpol"] = _to_int_id(df["IDpol"])
+        df["IDpol"], n_raw_ids = parse_idpol(df["IDpol"])
         df.to_parquet(raw / f"{name}.parquet", index=False)
-        meta["files"][name] = {"url": url, "sha256": _sha256(rda), "rows": len(df), "columns": list(df.columns)}
+        meta["files"][name] = {
+            "url": url,
+            "sha256": _sha256(rda),
+            "rows": len(df),
+            "columns": list(df.columns),
+            "idpol_raw_unique_labels": n_raw_ids,
+            "idpol_parsed_unique": int(df["IDpol"].nunique()),
+        }
     meta_path.write_text(json.dumps(meta, indent=2))
+    write_source_table(meta, cfg)
     return meta
+
+
+def write_source_table(meta: dict, cfg: dict) -> None:
+    """Copy the provenance record into reports/ (data/raw is git-ignored)."""
+    rows = [
+        {
+            "file": name,
+            "source": meta["source"],
+            "casdatasets_version": meta["casdatasets_version"],
+            "retrieved": meta["retrieved"],
+            "rows": info["rows"],
+            "idpol_raw_unique_labels": info["idpol_raw_unique_labels"],
+            "idpol_parsed_unique": info["idpol_parsed_unique"],
+            "sha256": info["sha256"],
+            "url": info["url"],
+        }
+        for name, info in meta["files"].items()
+    ]
+    tables = cfg["paths"]["tables"]
+    tables.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_csv(tables / "data_source.csv", index=False)
 
 
 if __name__ == "__main__":

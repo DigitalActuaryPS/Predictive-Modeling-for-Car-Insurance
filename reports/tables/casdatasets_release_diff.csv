@@ -1,0 +1,9 @@
+comparison,metric,value
+c49cbbb -> 8a37c3c,policies_in_old_not_in_current,22.0
+c49cbbb -> 8a37c3c,claimnb_of_dropped_policies_old,22.0
+c49cbbb -> 8a37c3c,exposure_of_dropped_policies,16.61
+c49cbbb -> 8a37c3c,policies_in_current_not_in_old,0.0
+c49cbbb -> 8a37c3c,kept_policies_with_claimnb_revised,9095.0
+c49cbbb -> 8a37c3c,revised_policies_where_new_claimnb_equals_old_sev_count,9095.0
+c49cbbb -> 8a37c3c,kept_policies_claimnb_increased,0.0
+c49cbbb -> 8a37c3c,kept_policies_exposure_changed,0.0

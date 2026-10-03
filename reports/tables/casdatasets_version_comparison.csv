@@ -1,0 +1,6 @@
+commit,date,commit_message,reader,freq_rows,freq_idpol_unique,freq_claimnb_total,sev_rows,sev_idpol_distinct,sev_rows_idpol_not_in_freq,sev_amount_total_idpol_not_in_freq,policies_claimnb_ne_sev_count,claims_in_freq_without_sev_record,sev_records_beyond_freq_claimnb,freq_exposure_total,sev_amount_total,n_regions,freq_rows_minus_current,sev_rows_minus_current
+c49cbbb,2017-01-19,add dataset files,freq:xdr_fallback sev:pyreadr,678013,True,36102.0,26639,24950,195,788714.1800000002,9117,9658.0,0.0,358499.4454629838,60697930.68000001,22,22,195
+9aa07b9,2017-01-21,resave data file 7,freq:xdr_fallback sev:pyreadr,678013,True,36102.0,26639,24950,195,788714.1800000002,9117,9658.0,0.0,358499.4454629838,60697930.68000001,22,22,195
+4511e99,2020-11-16,new data files,freq:xdr_fallback sev:pyreadr,678013,True,36102.0,26639,24950,195,788714.1800000002,9117,9658.0,0.0,358499.4454629838,60697930.68000001,21,22,195
+531aa23,2022-06-23,update to remove inconsistencies,freq:pyreadr sev:pyreadr,677991,True,26444.0,26444,24944,0,0.0,0,0.0,0.0,358482.8354629838,59909216.5,22,0,0
+8a37c3c,2024-09-17,bug fix in Region,freq:pyreadr sev:pyreadr,677991,True,26444.0,26444,24944,0,0.0,0,0.0,0.0,358482.8354629838,59909216.5,22,0,0
