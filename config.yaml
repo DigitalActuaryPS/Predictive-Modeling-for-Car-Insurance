@@ -1,0 +1,14 @@
+seed: 20240501
+
+paths:
+  raw: data/raw
+  processed: data/processed
+  tables: reports/tables
+  figures: reports/figures
+
+data:
+  source: CASdatasets (dutangc/CASdatasets, master branch)
+  urls:
+    freMTPL2freq: https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2freq.rda
+    freMTPL2sev: https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2sev.rda
+  description_url: https://raw.githubusercontent.com/dutangc/CASdatasets/master/DESCRIPTION
