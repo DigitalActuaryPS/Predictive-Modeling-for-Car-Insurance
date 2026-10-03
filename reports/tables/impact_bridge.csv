@@ -1,0 +1,4 @@
+step,share_exposure_moving_gt_5pct,share_exposure_moving_gt_20pct,mean_abs_change
+1. GLM-A -> GLM-A-mono (BonusMalus constraint),0.08533605265292238,0.0,0.017084893185099165
+2. GLM-A-mono -> GLM-B (interactions),0.6530797473827737,0.11303728836944296,0.09578350303483177
+total: GLM-A -> GLM-B,0.6766455247906179,0.1236865190598497,0.10069486557219653

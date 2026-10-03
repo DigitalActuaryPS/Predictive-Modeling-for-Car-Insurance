@@ -1000,6 +1000,17 @@ uncaptured, and that gap is concentrated in these tails. The README states this.
   GLM-B uses `BonusMalus_bandB`.
 - **Why the reversal existed.** Not investigated (it would need BonusMalus values within
   61-80). Merging hides it from customers, but keeps it as a pattern to explain.
+- **Addendum: what "effective" measures on learn.** A Poisson GLM with a log link,
+  intercept and a factor reproduces observed claim totals for every level of that factor.
+  So on the learn set, the effective BonusMalus frequency relativity of any GLM that
+  includes the BonusMalus factor equals the observed one-way frequency ratio. GLM-A and
+  GLM-B therefore have identical effective values at step 0 (`bm_monotonicity_steps.csv`,
+  `bm_monotonicity_steps_glm_a.csv`).
+  - The rule is equivalent to pooling adjacent bands until the learn one-way BonusMalus
+    frequency rises monotonically, a pool-adjacent-violators step.
+  - It is a sound rule for a customer-facing scale, but it does not depend on the model.
+  - On other data, or on a different portfolio mix, the tariff's effective relativities
+    can still differ from the one-way.
 
 ---
 
@@ -1010,37 +1021,59 @@ uncaptured, and that gap is concentrated in these tails. The README states this.
 - **Design.**
   - The portfolio is every policy, learn plus holdout. Rates are per policy-year,
     weighted by exposure.
-  - The current premium is the GLM-A tariff and the proposed premium is the GLM-B
-    tariff. The proposed tariff is scaled by 0.99994 so that both raise the same total.
-    The revenue ratio is 1.000000, and the test requires this within 0.1%
-    (`impact_revenue_neutrality.csv`).
+  - The **current** premium is the GLM-A-mono tariff (D041) and the proposed premium is
+    the GLM-B tariff. Both are rebased to learn losses, and the proposed tariff is scaled
+    to the same portfolio total: revenue ratio 1.000000, which the test requires within
+    0.1% (`impact_revenue_neutrality.csv`).
 - **Justification test.** The test runs on the holdout only, since neither tariff was
   fitted on it.
-  - **ASSUMPTION:** observed loss cost = capped claims x (1 + load). This keeps single
-    large claims from deciding small bands. For example, the +10% to +20% band contains
-    the 4.08m claim, and its all-claims ratio is 4.11. All-claims ratios are kept in
-    the table.
+  - **ASSUMPTION:** observed loss cost = capped claims x (1 + load), so that single large
+    claims (the 4.08m claim in particular) do not decide small bands. All-claims ratios
+    are kept in the table.
   - Sampling error is approximated as 1.96 / sqrt(claims).
-- **Findings** (`impact_change_bands.csv`, `impact_by_factor.csv`,
-  `impact_top_segments.csv`, `impact_capping.csv`).
-  - 32.3% of exposure moves by less than 5%, and 12.4% by more than 20%.
-  - **Supported by experience:**
-    - Decreases above 20% move observed / premium from 0.693 to 1.004.
-    - Increases of 5% to 10% move it from 1.279 to 1.190, and increases of 10% to 20%
-      from 1.242 to 1.091.
-  - **Overshoot:**
-    - Increases above 20% move observed / premium from 1.156 to 0.894.
-    - The largest factor-level move is BonusMalus 66-70 (+18.2%), driven by the D039
-      merge: observed / premium goes from 1.08 to 0.91 on 203 holdout claims.
-    - BonusMalus 61-65 (-10.9%) moves from 0.88 to 0.98.
-- **Capping.** An illustrative +/-15% cap on each policy's year-one change:
-  - Not rebalanced, revenue changes by -0.39%.
-  - Rebalanced (scale 1.0051 before capping), it delivers 77.9% of the premium movement
-    and keeps 102.4% of the holdout Gini improvement. 18.3% of exposure sits at the cap.
-  - Keeping more than 100% of the Gini gain says the capped-off part of the largest moves
-    adds no ranking power on the holdout. This is consistent with the overshoot above
-    +20%.
-  - Holdout Gini is noisy (on 72k policy-years, the improvement from current to proposed
-    is only 0.011), so this supports a cap rather than proving one.
-- **Not tested:** retention or elasticity, competitor position, or fairness. All three
-  are listed in `reports/impact_analysis.md` as prerequisites for implementation.
+- **Bridge** (`impact_bridge.csv`; each step revenue neutral):
+
+| Step | Exposure moving more than 5% | More than 20% | Mean absolute change |
+|---|---|---|---|
+| GLM-A to GLM-A-mono (BonusMalus constraint) | 8.5% | 0.0% | 1.7% |
+| GLM-A-mono to GLM-B (interactions) | 65.3% | 11.3% | 9.6% |
+| Total, GLM-A to GLM-B | 67.7% | 12.4% | 10.1% |
+
+  The interactions, not the constraint, drive the movement.
+- **Findings, GLM-A-mono to GLM-B** (`impact_change_bands.csv`, `impact_by_factor.csv`,
+  `impact_top_segments.csv`).
+  - 34.7% of exposure moves by less than 5%, and 11.3% by more than 20%.
+  - The proposed premium is closer to holdout experience in 6 of 7 change bands:
+    - Decreases above 20%: observed / premium goes from 0.77 to 1.13.
+    - Decreases of 10% to 20%: 0.78 to 0.91.
+    - Increases of 10% to 20%: 1.20 to 1.06.
+    - Increases above 20%: 1.15 to 0.89, an overshoot, though closer to 1 than before.
+    - The exception is the -10% to -5% band, which moves from 1.00 to 1.07.
+  - The most affected segment is BonusMalus 100-110 x B12 (-31.6%, 1,705 policy-years).
+- **Capping** (`impact_capping.csv`). An illustrative +/-15% cap on each policy's
+  year-one change:
+  - Not rebalanced, revenue changes by -0.3%.
+  - Rebalanced (scale 1.0039 before capping), it delivers 78.6% of the premium movement
+    and keeps 105.1% of the holdout Gini improvement. 17.1% of exposure sits at the cap.
+  - The holdout Gini gain itself is small (0.3178 to 0.3280), so this indicates rather
+    than proves the value of a cap.
+- **Superseded run.** With raw GLM-A as the current tariff, the -20% and +20% bands were
+  dominated by the BonusMalus merge (61-65 down, 66-70 up). That comparison was replaced,
+  per the owner.
+- **Not tested:** retention or elasticity, competitor position, or fairness. All three are
+  listed in `reports/impact_analysis.md` as prerequisites for implementation.
+
+## D041 GLM-A-mono: current tariff for the impact analysis
+
+- **Decision (owner).** Apply the D039 rule to GLM-A (`src/tariff/glm_a_mono.py`).
+  - It reaches the same 61-80 merge as GLM-B, in three steps
+    (`bm_monotonicity_steps_glm_a.csv`).
+  - Result: 69 parameters, CV deviance 0.239374 (sd 0.003226), holdout deviance
+    0.242727, holdout Gini 0.293 (`frequency_model_comparison.csv`, row "GLM-A-mono
+    (impact baseline)").
+  - The cost against GLM-A is +0.000114 CV deviance.
+- **Use.** GLM-A-mono is the current tariff in Stage 7. GLM-A stays as the statistical
+  model in the results table, with a footnote. The raw GLM-A premium is used only for the
+  bridge.
+- **Rationale.** An incumbent tariff whose no-claims scale reverses is not realistic.
+  Comparing against it mixed the monotonicity correction with the interaction gains.

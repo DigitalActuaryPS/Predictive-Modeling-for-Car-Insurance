@@ -6,7 +6,7 @@ from src.features import banding
 from src.interactions import glm_revision, narrative, shap_interactions
 from src.models import frequency, severity
 from src.impact import dislocation
-from src.tariff import relativities, sensitivities
+from src.tariff import glm_a_mono, relativities, sensitivities
 
 
 def main() -> None:
@@ -17,6 +17,7 @@ def main() -> None:
         ("stage 4a: SHAP interactions", shap_interactions.run),
         ("stage 4b: GLM revision", glm_revision.run),
         ("stage 4c: interaction narrative", narrative.write),
+        ("stage 4d: GLM-A-mono (impact baseline)", glm_a_mono.run),
         ("stage 5: severity and burning cost", severity.run),
         ("stage 6a: tariff", relativities.run),
         ("stage 6b: exposure and BonusMalus sensitivities", sensitivities.run),

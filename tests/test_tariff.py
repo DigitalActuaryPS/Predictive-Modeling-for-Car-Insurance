@@ -25,7 +25,7 @@ def test_policy_premiums_rebased(cfg):
     p = pd.read_parquet(cfg["paths"]["processed"] / "premiums.parquet")
     learn = p[~p["holdout"]]
     actual = learn["ClaimAmount"].sum()
-    for c in ("rate_current", "rate_proposed", "rate_gbm"):
+    for c in ("rate_current", "rate_proposed", "rate_gbm", "rate_glm_a"):
         assert abs((learn["Exposure"] * learn[c]).sum() / actual - 1) < 0.001, c
 
 
@@ -33,3 +33,10 @@ def test_effective_bonusmalus_relativities_never_decrease(cfg):
     # Customer-facing NCD must not reverse (DECISIONS D039)
     t = pd.read_csv(cfg["paths"]["tables"] / "relativities_BonusMalus_bandB.csv")
     assert (np.diff(t["effective_relativity"].to_numpy()) >= -1e-9).all()
+
+
+def test_glm_a_mono_is_monotone_and_reported(cfg):
+    steps = pd.read_csv(cfg["paths"]["tables"] / "bm_monotonicity_steps_glm_a.csv")
+    assert bool(steps["monotone"].iloc[-1])
+    comp = pd.read_csv(cfg["paths"]["tables"] / "frequency_model_comparison.csv")
+    assert "GLM-A-mono (impact baseline)" in set(comp["model"])

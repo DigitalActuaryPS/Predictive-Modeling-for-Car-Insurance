@@ -58,7 +58,8 @@ def effective_bm(fit, df, col) -> pd.Series:
     return m / m.iloc[0]
 
 
-def make_bm_monotone(cfg, base, accepted, learn, cv_start, fit_start, n_folds, tables):
+def make_bm_monotone(cfg, base, accepted, learn, cv_start, fit_start, n_folds, tables,
+                     col_name=BM_BAND_B, steps_file="bm_monotonicity_steps.csv"):
     """D039: while the effective BonusMalus relativities of GLM-B decrease anywhere, merge
     the first reversing pair of adjacent bands and refit (same interactions). Returns the
     final fit, its CV, the factor list and the band mapping."""
@@ -80,19 +81,19 @@ def make_bm_monotone(cfg, base, accepted, learn, cv_start, fit_start, n_folds, t
         rows[-1]["merge_next"] = f"{lo} + {hi} -> {merged}"
         mapping = {k: (merged if v in (lo, hi) else v) for k, v in mapping.items()}
         order = list(dict.fromkeys(mapping[c] for c in cats))
-        learn[BM_BAND_B] = pd.Categorical(learn["BonusMalus_band"].astype(str).map(mapping), categories=order, ordered=True)
-        col = BM_BAND_B
-        factors = [BM_BAND_B if f == "BonusMalus_band" else f for f in cfg["glm"]["factors"]]
-        base = {**base, BM_BAND_B: mapping[str(base["BonusMalus_band"])]}
+        learn[col_name] = pd.Categorical(learn["BonusMalus_band"].astype(str).map(mapping), categories=order, ordered=True)
+        col = col_name
+        factors = [col_name if f == "BonusMalus_band" else f for f in cfg["glm"]["factors"]]
+        base = {**base, col_name: mapping[str(base["BonusMalus_band"])]}
         make = make_terms(cfg, base, accepted, factors)
         cv = cv_frequency(make, learn, n_folds)
         fit = fit_glm(make(), learn, learn["ClaimNb"].to_numpy(), "poisson", np.log(learn["Exposure"].to_numpy()))
-    pd.DataFrame(rows).to_csv(tables / "bm_monotonicity_steps.csv", index=False)
+    pd.DataFrame(rows).to_csv(tables / steps_file, index=False)
     if col == "BonusMalus_band":  # already monotone: keep the original bands under the GLM-B name
         mapping = {c: c for c in cats}
-        factors = [BM_BAND_B if f == "BonusMalus_band" else f for f in cfg["glm"]["factors"]]
-        base = {**base, BM_BAND_B: str(base["BonusMalus_band"])}
-        learn[BM_BAND_B] = pd.Categorical(learn["BonusMalus_band"].astype(str), categories=cats, ordered=True)
+        factors = [col_name if f == "BonusMalus_band" else f for f in cfg["glm"]["factors"]]
+        base = {**base, col_name: str(base["BonusMalus_band"])}
+        learn[col_name] = pd.Categorical(learn["BonusMalus_band"].astype(str), categories=cats, ordered=True)
         make = make_terms(cfg, base, accepted, factors)
         fit = fit_glm(make(), learn, learn["ClaimNb"].to_numpy(), "poisson", np.log(learn["Exposure"].to_numpy()))
     return fit, cv, factors, mapping, base

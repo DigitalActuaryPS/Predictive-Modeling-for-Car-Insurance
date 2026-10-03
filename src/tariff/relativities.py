@@ -38,6 +38,8 @@ def load_models(cfg):
         b = pickle.load(fh)
     with open(P / "severity.pkl", "rb") as fh:
         sv = pickle.load(fh)
+    with open(P / "frequency_glm_a_mono.pkl", "rb") as fh:
+        s3["glm_a_mono"] = pickle.load(fh)["glm_a_mono"]
     return s3, b, sv
 
 
@@ -199,7 +201,8 @@ def run() -> dict:
     glm_a, glm_b, accepted, sev, load = s3["glm_a"], b["glm_b"], b["accepted"], sv["severity"], sv["load"]
 
     tb = Tariff(glm_b, sev, load, learn)
-    ta = Tariff(glm_a, sev, load, learn)
+    ta = Tariff(s3["glm_a_mono"], sev, load, learn)  # current tariff for Stage 7 (D041)
+    ta_stat = Tariff(glm_a, sev, load, learn)  # GLM-A as fitted (non-monotone BonusMalus); bridge step only
     gbm = lgb.Booster(model_str=s3["gbm_model"])
     gbm_freq = lambda d: G.predict_frequency(gbm, d, cfg, s3["gbm_encoder"])  # noqa: E731
     gbm_raw = lambda d: gbm_freq(d) * sev.predict(d) * (1 + load)  # noqa: E731
@@ -225,7 +228,8 @@ def run() -> dict:
         "large_loss_load": load, "rebase_factor": t.rebase,
         "learn_premium": float((learn["Exposure"] * t.rate(learn)).sum()), "learn_actual_losses": float(learn["ClaimAmount"].sum()),
         "holdout_premium": float((hold["Exposure"] * t.rate(hold)).sum()), "holdout_actual_losses": float(hold["ClaimAmount"].sum()),
-    } for name, t in (("GLM-B tariff (proposed)", tb), ("GLM-A tariff (current)", ta))])
+    } for name, t in (("GLM-B tariff (proposed)", tb), ("GLM-A-mono tariff (current)", ta),
+                      ("GLM-A tariff (statistical model, not used as current)", ta_stat))])
     summ["learn_premium_over_actual"] = summ["learn_premium"] / summ["learn_actual_losses"]
     summ.to_csv(tables / "tariff_summary.csv", index=False)
 
@@ -236,6 +240,7 @@ def run() -> dict:
     # Policy-level premiums for Stage 7 (all policies)
     prem = pol[["IDpol", "holdout", "fold", "Exposure", "ClaimNb", "ClaimAmount", "ClaimAmountCapped"]].copy()
     prem["rate_current"] = ta.rate(pol)
+    prem["rate_glm_a"] = ta_stat.rate(pol)
     prem["rate_proposed"] = tb.rate(pol)
     prem["rate_gbm"] = gbm_raw(pol) * gbm_rebase
     prem.to_parquet(processed / "premiums.parquet", index=False)
