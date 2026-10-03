@@ -38,6 +38,7 @@ cleaning:
   # Large-loss threshold for the attritional severity model; see DECISIONS D010.
   large_loss_threshold: 20000
   large_loss_candidates: [5000, 10000, 20000, 30000, 50000, 100000, 200000]
+  sensitivity_thresholds: [10000, 20000, 50000]   # LIMITATIONS sensitivity table
 
 split:
   # Rows sharing all rating covariates form one group (possible same-risk splits);

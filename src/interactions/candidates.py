@@ -142,7 +142,9 @@ SELECTION_ORDER = [
     {"pair": "DrivAge x BonusMalus", "variants": ["young_lbm_senior_malus"]},
     {"pair": "BonusMalus x LogDensity", "variants": ["bm_x_density"]},
     {"pair": "BonusMalus x VehBrand", "variants": ["b12_x_bm_linear", "b12_x_bm_3grp"]},
-    {"pair": "BonusMalus x Region", "variants": ["region_bm_slope_2grp", "region_bm_slope_3grp"], "requires": "bm_x_density"},
+    # Originally conditional on bm_x_density being accepted. Condition dropped by the owner on
+    # evidence: the region signal survives with density in (DECISIONS D029).
+    {"pair": "BonusMalus x Region", "variants": ["region_bm_slope_2grp", "region_bm_slope_3grp"]},
     {"pair": "VehAge x VehBrand", "variants": ["b12_x_newcar"]},
 ]
 

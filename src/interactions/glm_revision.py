@@ -139,6 +139,7 @@ def run() -> dict:
         t = two_way_ae(learn.assign(_p=oof(learn, cv, n_folds)), "BonusMalus_band", "Region_grp", "_p")
         sm = two_way_summary(t, min_cell, label).iloc[0].to_dict()
         region_signal.append({"model": label, "mean_z_squared": sm["mean_z_squared"],
+                              "z2_per_df_incomplete": sm["z2_per_df_incomplete"], "z2_per_df_rc": sm["z2_per_df_rc"],
                               "cells_abs_z_gt_1_96": sm["cells_abs_z_gt_1_96"], "cells": sm["cells"]})
 
     region_z2(cv_a, "GLM-A")
@@ -173,6 +174,10 @@ def run() -> dict:
     # the density interaction is in? Run when density was not accepted, so the question is
     # still answered.
     if "bm_x_density" not in accepted:
+        pre_region = [a for a in accepted if not a.startswith("region_")]
+        if pre_region != accepted:
+            region_z2(cv_frequency(make_terms(cfg, base, pre_region + ["bm_x_density"]), learn, n_folds),
+                      "diagnostic: model before region term + bm_x_density")
         region_z2(cv_frequency(make_terms(cfg, base, accepted + ["bm_x_density"]), learn, n_folds),
                   "diagnostic: final model + bm_x_density (not accepted)")
 
@@ -184,7 +189,8 @@ def run() -> dict:
     nt = []
     for pair, (f1, f2) in NOT_TRANSLATED.items():
         r = summ[(summ.factor_1 == f1) & (summ.factor_2 == f2)].iloc[0]
-        nt.append({"pair": pair, "mean_z_squared_vs_glm_a": r.mean_z_squared, "cells": r.cells,
+        nt.append({"pair": pair, "mean_z_squared_vs_glm_a": r.mean_z_squared, "z2_per_df_incomplete": r.z2_per_df_incomplete,
+                   "z2_per_df_rc": r.z2_per_df_rc, "cells": r.cells,
                    "cells_abs_z_gt_1_96": r.cells_abs_z_gt_1_96, "expected_by_chance": r.expected_by_chance,
                    "reason": "no excess over Poisson noise in the raw two-way A/E against GLM-A; rejected without a GLM test"})
     pd.DataFrame(nt).to_csv(tables / "interaction_not_translated.csv", index=False)

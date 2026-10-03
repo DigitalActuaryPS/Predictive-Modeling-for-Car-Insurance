@@ -24,6 +24,17 @@ def write() -> str:
     expo = pd.read_csv(T / "interaction_exposure_check.csv")
     b12p = pd.read_csv(T / "b12_profile.csv").set_index("group")
 
+    if region.model.str.startswith("after region").any():
+        rg = region.set_index("model")["z2_per_df_incomplete"]
+        before = [m for m in rg.index if m.startswith("after") and not m.startswith("after region")][-1]
+        after = next(m for m in rg.index if m.startswith("after region"))
+        pre = [m for m in rg.index if m.startswith("diagnostic: model before region")]
+        region_text = (f" BonusMalus x Region residual statistic: {rg['GLM-A']:.2f} under GLM-A, {rg[before]:.2f} before "
+                       f"the region term" + (f" ({rg[pre[0]]:.2f} if density is added instead)" if pre else "")
+                       + f", {rg[after]:.2f} after it.")
+    else:
+        region_text = " BonusMalus x Region residual statistic by step: " + ", ".join(
+            f"{r.model} {r.z2_per_df_incomplete:.2f}" for r in region.itertuples()) + "."
     pairs = ", ".join(f"{r.feature_1} x {r.feature_2}" for r in rank.itertuples())
     n_bm_age = int(sum(("BonusMalus" in (r.feature_1, r.feature_2)) or ("DrivAge" in (r.feature_1, r.feature_2))
                        for r in rank.itertuples()))
@@ -36,41 +47,43 @@ def write() -> str:
         "## What the GBM found",
         "",
         f"SHAP interaction values for the tuned GBM, on {int(run.rows):,} learn policies stratified by claim indicator, "
-        f"rank these pairs highest: {pairs}. {n_bm_age} of the {len(rank)} involve BonusMalus or driver age. "
+        f"rank highest: {pairs}. {n_bm_age} of the {len(rank)} involve BonusMalus or driver age. "
         f"Friedman's H-statistic puts {h_lead.feature_1} x {h_lead.feature_2} first as well. "
         "Under French bonus-malus rules the coefficient starts at 1.00 (100 here) and falls 5% a year without claims "
         "(Code des assurances, art. A121-1), so one BonusMalus level means a novice at 25 but a recent claimant at 65.",
         "",
         "## Which effects are real",
         "",
-        "Two-way tables of observed claims against out-of-fold predictions on learn data; mean z^2 near 1 means no pattern left.",
+        "Two-way tables of observed claims against out-of-fold predictions on learn data. Statistic: sum(z^2) / df, "
+        "with df = cells - rows - cols + 1 (cells under 200 policy-years excluded); near 1 means no pattern left.",
         "",
         "| Pair | vs GLM-A | vs GLM-B |",
         "|---|---|---|",
     ]
     for (_, a), (_, b) in zip(ae_a.iterrows(), ae_b.iterrows()):
-        lines.append(f"| {a.factor_1.split('_')[0]} x {a.factor_2.split('_')[0]} | {a.mean_z_squared:.2f} | {b.mean_z_squared:.2f} |")
+        lines.append(f"| {a.factor_1.split('_')[0]} x {a.factor_2.split('_')[0]} | {a.z2_per_df_incomplete:.2f} | {b.z2_per_df_incomplete:.2f} |")
     lines += [
         "",
         "Rejected untested (no excess over noise): "
-        + "; ".join(f"{r.pair} ({int(r.cells_abs_z_gt_1_96)} significant cells, {r.expected_by_chance:.1f} expected)" for r in not_tr.itertuples()) + ".",
+        + "; ".join(f"{r.pair} ({r.z2_per_df_incomplete:.2f}; {int(r.cells_abs_z_gt_1_96)} significant cells, {r.expected_by_chance:.1f} expected)" for r in not_tr.itertuples()) + ".",
         "",
         "## What survived",
         "",
-        "Tariff-friendly forms were added to GLM-A one pair at a time, in an owner-set order, on the shared CV folds. Accepted:",
+        "Accepted (forward selection, one pair at a time in an owner-set order, shared CV folds):",
         "",
     ]
     for r in acc.itertuples():
         row = log[(log.step == r.step) & (log.candidate == r.accepted)].iloc[0]
-        lines.append(f"- **{r.accepted}**: {row.description}. Improved all 5 folds; {pct(r.share_of_gap)} of the gap.")
+        lines.append(f"- **{r.accepted}**: {row.description}; {pct(r.share_of_gap)} of the gap.")
     rejected = log[~log.candidate.isin(acc.accepted)].sort_values("step").groupby("candidate").tail(1)
     lines += ["", "Rejected or not tested:", ""]
+    beaten = []
     for r in rejected.itertuples():
         if isinstance(getattr(r, "not_tested_reason", None), str):
             lines.append(f"- {r.candidate}: not tested, {r.not_tested_reason}.")
             continue
         if r.passes:
-            lines.append(f"- {r.candidate}: passed, but another form of the same pair improved more.")
+            beaten.append(r.candidate)
             continue
         reasons = []
         if not r.rule2_all_folds:
@@ -82,6 +95,8 @@ def write() -> str:
         if r.sign_stable_all_folds and not r.rule4_stable_sensible:
             reasons.append(f"multiplier up to {r.multiplier_p99:.2f}, above 2.0")
         lines.append(f"- {r.candidate}: " + "; ".join(reasons) + ".")
+    if beaten:
+        lines.append("- Passed but beaten by a form of the same pair: " + ", ".join(beaten) + ".")
     lines += [
         "",
         "## Share of GBM lift captured",
@@ -90,10 +105,8 @@ def write() -> str:
         f"({pct(gap.holdout_gap_closed_by_glm_b)} on holdout) with "
         f"{int(comp.loc['GLM-B (proposed tariff)', 'n_params'] - comp.loc['GLM-A (current tariff)', 'n_params'])} extra parameters. "
         f"Holdout Gini: GLM-A {comp.loc['GLM-A (current tariff)', 'holdout_gini']:.3f}, "
-        f"GLM-B {comp.loc['GLM-B (proposed tariff)', 'holdout_gini']:.3f}, GBM {comp.loc['GBM (LightGBM Poisson)', 'holdout_gini']:.3f}. "
-        f"The largest pattern left is BonusMalus x Region. Its residual mean z^2 goes from "
-        f"{region.mean_z_squared.iloc[0]:.2f} under GLM-A to " + ", ".join(
-            f"{r.mean_z_squared:.2f} {r.model.replace('diagnostic: ', '')}" for r in region.iloc[1:].itertuples()) + ".",
+        f"GLM-B {comp.loc['GLM-B (proposed tariff)', 'holdout_gini']:.3f}, GBM {comp.loc['GBM (LightGBM Poisson)', 'holdout_gini']:.3f}."
+        + region_text,
         "",
         "## B12 and short exposure",
         "",
@@ -102,9 +115,8 @@ def write() -> str:
         f"{pct(b12p.loc['other brands', 'share_vehage_le_1'])}). Refitting GLM-B with log(exposure) as a free covariate "
         "moves the B12 coefficients by a factor of "
         + " and ".join(f"{r.ratio_free_to_offset:.2f}" for r in expo[expo.term.str.startswith('b12')].itertuples())
-        + ". " + ("The effect shrinks materially, so it is likely driven partly by short-exposure policies (hypothesis, unverified)."
-                  if (expo[expo.term.str.startswith('b12')].ratio_free_to_offset < 0.75).any() else
-                  "The shrinkage is under 25%, so the effect is not mainly a short-exposure artefact."),
+        + ". " + (f"About {pct(1 - expo[expo.term.str.startswith('b12')].ratio_free_to_offset.mean())} of the B12 effect "
+                  "is associated with short exposure; the rest persists."),
     ]
     text = "\n".join(lines) + "\n"
     (ROOT / "reports" / "shap_interactions.md").write_text(text)

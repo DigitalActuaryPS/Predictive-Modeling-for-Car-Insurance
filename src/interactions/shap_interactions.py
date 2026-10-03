@@ -177,17 +177,21 @@ def run() -> pd.DataFrame:
 
 
 def two_way_summary(ae: pd.DataFrame, min_exposure: float, model: str) -> pd.DataFrame:
-    """Per pair: cells with enough exposure, cells with |z| > 1.96 and mean z^2 (about 1 if
-    the model leaves no systematic two-way pattern)."""
+    """Per pair, over cells with at least min_exposure policy-years:
+    - mean_z_squared: sum(z^2) / cells
+    - z2_per_df_rc: sum(z^2) / ((rows - 1)(cols - 1)), the complete-table independence df
+    - z2_per_df_incomplete: sum(z^2) / (cells - rows - cols + 1), the df when some cells are
+      excluded (quasi-independence). Headline measure: it equals the rc form for a complete
+      table and stays valid when sparse cells are dropped.
+    Each is about 1 if the model leaves no systematic two-way pattern."""
     rows = []
     for (a, b), g in ae.groupby(["factor_1", "factor_2"], sort=False):
         g = g[g["exposure"] >= min_exposure]
-        rows.append({"model": model, "factor_1": a, "factor_2": b, "cells": len(g),
+        r, c, n = g["level_1"].nunique(), g["level_2"].nunique(), len(g)
+        sz = float((g["ae_z"] ** 2).sum())
+        rows.append({"model": model, "factor_1": a, "factor_2": b, "cells": n, "rows": r, "cols": c,
                      "cells_abs_z_gt_1_96": int((g["ae_z"].abs() > 1.96).sum()),
-                     "expected_by_chance": 0.05 * len(g), "mean_z_squared": float((g["ae_z"] ** 2).mean())})
+                     "expected_by_chance": 0.05 * n, "sum_z_squared": sz, "mean_z_squared": sz / n,
+                     "df_rc": (r - 1) * (c - 1), "z2_per_df_rc": sz / ((r - 1) * (c - 1)),
+                     "df_incomplete": n - r - c + 1, "z2_per_df_incomplete": sz / (n - r - c + 1)})
     return pd.DataFrame(rows)
-
-
-if __name__ == "__main__":
-    pd.set_option("display.width", 220)
-    print(run().head(12).to_string())
