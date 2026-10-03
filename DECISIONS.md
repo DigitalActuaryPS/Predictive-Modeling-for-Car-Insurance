@@ -7,7 +7,8 @@ this repo) and the rationale. Assumptions are marked **ASSUMPTION**.
 ## Working rules
 
 - Work in stages. At the end of each stage: run all code, run the tests, commit, and
-  push the working branch (`claude/sweet-thompson-thk7jp`) to `origin`.
+  push the working branch (`claude/sweet-thompson-thk7jp`) to `origin`, but only while
+  the repository is private. Pushing is on hold while it shows as public.
 - The GitHub repository stays **private**. Do not merge to `main`, change repository
   visibility, or create releases or tags without the owner's explicit approval.
 - Every number in README, DECISIONS and narrative files comes from a file written by
@@ -99,9 +100,10 @@ this repo) and the rationale. Assumptions are marked **ASSUMPTION**.
 ## D006 GBM encoding of nominal factors (decided before Stage 3, for Stage 4)
 
 - **Decision.** The GBM will not use LightGBM native categorical handling. VehBrand and
-  Region enter as numeric ranks of observed claim frequency, with the ranking fitted
-  on the training data of each fit (each CV training set, and the full learn set for
-  the final model).
+  Region enter as numeric ranks of observed claim frequency. The ranking is computed
+  within each CV training set (the four training folds), and on the full learn set for
+  the final model. It is never computed on a validation fold, an early-stopping fold or
+  the holdout. A test checks this (Stage 3, `tests/test_gbm.py`).
 - **Alternatives.** Native categoricals, which is the usual best practice. One-hot
   encoding, which adds 31 features and makes the interaction matrix about 20 times
   larger.
@@ -253,3 +255,105 @@ this repo) and the rationale. Assumptions are marked **ASSUMPTION**.
 - **Consequence.** Severity relativities will be flat for many factors, because much of
   the claim amount is a convention rate rather than a cost driven by the risk. This is
   noted for Stage 5 and LIMITATIONS.
+
+---
+
+## Stage 2: Banding and features
+
+## D013 Minimum exposure per level: 2,000 learn policy-years
+
+- **Decision.** Every level of every rating factor must carry at least 2,000
+  policy-years in the learn set (`banding.min_band_exposure`). This is checked in code,
+  and the stage fails if any level is short.
+- **Evidence.** `reports/tables/band_exposure_check.csv`: all 79 levels pass. The
+  smallest are DrivAge 18-20 (2,061.7 policy-years, 469 claims), BonusMalus 111+
+  (2,135.3, 815 claims), Nord-Est small (2,391.2) and Haute-Normandie (2,559.5).
+- **Rationale.** At the portfolio frequency of about 0.073, 2,000 policy-years gives
+  roughly 150 claims. The standard error of a log relativity is then about
+  1/sqrt(150) = 0.08, which is about the coarsest a tariff cell should rest on. That is
+  0.7% of the 286,515 learn policy-years.
+- **ASSUMPTION:** a single threshold for all factors is adequate. It is judged against
+  the frequency model, because severity uses the same factors with fewer observations
+  (Stage 5 handles this by keeping severity simpler).
+
+## D014 Band cut points
+
+- **Decision.** Cut points are in `config.yaml` (`banding.edges`), chosen from the raw
+  learn one-ways (`reports/tables/oneway_raw_*.csv`) subject to D013. Final one-ways are
+  in `reports/tables/oneway_band_*.csv` and `reports/figures/oneway_*.png`.
+  - **DrivAge:** 18-20, 21-22, 23-24, 25-26, 27-29, 30-34, 35-44, 45-54, 55-64, 65-74,
+    75+. Narrow bands under 30, where frequency falls steeply from 0.281 at 18 to about
+    0.07 by 30. Ages 18-20 are merged because age 18 alone has only 170.8 policy-years.
+    The 45-54 band captures the mid-life hump, plausibly children driving a parent's car,
+    which is not tested here.
+  - **VehAge:** 0, 1, 2-4, 5-7, 8-10, 11-13, 14-16, 17-19, 20+. The effect is mild.
+    20+ is merged because single ages above 22 are sparse.
+  - **VehPower:** each value 4 to 11, and 12+.
+  - **BonusMalus:** 50, 51-55, 56-60, 61-65, 66-70, 71-75, 76-80, 81-90, 91-99,
+    100-110, 111+. 50 holds 62.8% of learn exposure (179,975.6 policy-years). Above 100,
+    D013 forces the two bands 100-110 and 111+.
+  - **LogDensity:** 0-2.5, then steps of 1.0 up to 9.5, then 9.5+.
+- **Alternatives.** Data-driven merging of adjacent bands by statistical tests. Not used:
+  it tunes the bands to noise in the learn data, and fixed cut points are easier to
+  defend and to carry in a tariff.
+
+## D015 Area dropped; density used as banded log(Density)
+
+- **Decision.** Drop Area. Use banded log(Density) instead.
+- **Evidence.** In `reports/tables/area_vs_density.csv`, each Area level covers a
+  contiguous, non-overlapping range of log(Density): A is 0 to 3.91, B 3.91 to 4.61,
+  and so on up to F at 9.21 to 10.20 (`overlaps_next` is False for every level). Area
+  is therefore a six-band version of log(Density).
+- **Rationale.** Including both duplicates the same information and makes the density
+  relativities unstable through collinearity. Banding log(Density) more finely, with 9
+  levels, keeps the information Area discards.
+
+## D016 Region and VehBrand grouping
+
+- **Region (geographic).** Merge sparse old regions with their neighbours (D013):
+  - Alsace, Champagne-Ardenne and Franche-Comte into "Nord-Est small" (2,391.2
+    policy-years).
+  - Auvergne and Limousin into one group (3,738.2).
+  - Corse into Provence-Alpes-Cotes-D'Azur, as "PACA + Corse" (30,142.0).
+  The other 15 regions stay separate. Geography was chosen over grouping by observed
+  frequency because it keeps the groups explainable and does not tune them to the
+  learn-set response. Evidence: `band_exposure_check.csv`.
+- **VehBrand (by frequency).** Brand labels are anonymised, B1 to B14, so there is no
+  natural neighbour. B14 (1,819.8 policy-years) falls short and is merged in code into
+  the brand with the nearest learn one-way frequency, which is B12
+  (`reports/tables/vehbrand_merges.csv`). This is the only factor grouped using the
+  response, and it moves 1,820 policy-years into a level of 51,746.
+- **Base levels.** In `reports/tables/base_levels.csv`: DrivAge 45-54, VehAge 2-4,
+  VehPower 6, BonusMalus 50, LogDensity 4.5-5.5, VehBrand B1, Region Centre, VehGas
+  Regular. Each is its factor's highest-exposure level on learn.
+
+## D017 Bands rather than splines for DrivAge and BonusMalus
+
+- **Decision.** Keep bands for both factors in GLM-A and GLM-B.
+- **Evidence.** `reports/tables/band_vs_spline_cv.csv`, the main-effects Poisson GLM
+  with 5-fold CV on the shared folds. "Improvement" is the all-banded model's fold
+  deviance minus the variant's, so positive means the variant is better. The sd is
+  across the five paired fold differences.
+  - **All banded:** CV deviance 0.239260 (sd 0.003246), 72 parameters.
+  - **DrivAge spline, df 8:** improves by 0.000169 (sd 0.000074) and is better in 5 of
+    5 folds. With df 6 the gain is 0.000129 (sd 0.000079), also 5 of 5. With df 4 the
+    spline is worse by 0.000532.
+  - **BonusMalus spline, df 3, 5 or 7:** worse in every fold, by 0.001591, 0.000647
+    and 0.000347. Log-linear BonusMalus is worse by 0.001423.
+- **Rationale.**
+  - **BonusMalus.** Bands win outright. The relationship is not smooth: the 61-65 band
+    has a frequency of 0.136, above both neighbours (`oneway_band_BonusMalus_band.csv`).
+  - **DrivAge.** The spline gain is consistent but tiny: 0.07% of deviance, against a
+    fold-to-fold sd of 0.003246 in deviance levels. It comes from smoothing within the
+    young bands. Bands are kept because:
+    - GLM-A represents an incumbent banded tariff.
+    - Stage 4 interactions such as young driver x vehicle power are simpler and easier
+      to explain on bands.
+    - A gain of this size is small next to the GLM-to-GBM gap that Stage 4 targets.
+  - The spline result is kept in the table so the trade-off is visible.
+- **Implication for Stage 4.** The sd of fold deviance levels (0.0032) is about 40 times
+  the sd of paired fold differences (0.00007 to 0.0001). "Improvement beyond one CV
+  standard deviation" is therefore read as the mean paired improvement exceeding the
+  sd of the paired fold differences. Measured against the sd of deviance levels, no
+  plausible single effect could pass, so that reading would make the test meaningless.
+  This interpretation is a judgement call.

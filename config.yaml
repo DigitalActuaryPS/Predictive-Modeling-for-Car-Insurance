@@ -43,3 +43,32 @@ split:
   group_covariates: [Area, VehPower, VehAge, DrivAge, BonusMalus, VehBrand, VehGas, Density, Region]
   holdout_share: 0.2
   n_folds: 5
+
+banding:
+  min_band_exposure: 2000    # learn-set policy-years per level of every rating factor; see DECISIONS D013
+  # Left-closed integer edges: [a, b). The last edge is open-ended.
+  edges:
+    DrivAge: [18, 21, 23, 25, 27, 30, 35, 45, 55, 65, 75]
+    VehAge: [0, 1, 2, 5, 8, 11, 14, 17, 20]
+    VehPower: [4, 5, 6, 7, 8, 9, 10, 11, 12]
+    BonusMalus: [50, 51, 56, 61, 66, 71, 76, 81, 91, 100, 111]
+    LogDensity: [0, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5]
+  # Geographic grouping of sparse regions (old French regions; neighbours merged)
+  region_groups:
+    Alsace: Nord-Est small (Als, Ch-Ard, F-Comte)
+    Champagne-Ardenne: Nord-Est small (Als, Ch-Ard, F-Comte)
+    Franche-Comte: Nord-Est small (Als, Ch-Ard, F-Comte)
+    Corse: PACA + Corse
+    Provence-Alpes-Cotes-D'Azur: PACA + Corse
+    Auvergne: Auvergne + Limousin
+    Limousin: Auvergne + Limousin
+  # VehBrand labels carry no information, so a sparse brand joins the brand with the
+  # nearest learn-set one-way frequency (computed, not hard-coded)
+  spline_df:
+    DrivAge: [4, 6, 8]
+    BonusMalus: [3, 5, 7]
+
+glm:
+  factors: [DrivAge_band, VehAge_band, VehPower_band, BonusMalus_band, LogDensity_band, VehBrand_grp, Region_grp, VehGas]
+  tol: 1.0e-10
+  max_iter: 50

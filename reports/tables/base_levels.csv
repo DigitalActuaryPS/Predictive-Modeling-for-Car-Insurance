@@ -1,0 +1,9 @@
+factor,base_level
+DrivAge_band,45-54
+VehAge_band,2-4
+VehPower_band,6
+BonusMalus_band,50
+LogDensity_band,4.5-5.5
+VehBrand_grp,B1
+Region_grp,Centre
+VehGas,Regular
