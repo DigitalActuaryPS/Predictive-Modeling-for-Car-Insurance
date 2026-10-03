@@ -373,13 +373,19 @@ selection.
    candidate) exceeds the sd of the five paired differences (D017), **or** a likelihood
    ratio test on the full learn set is significant at p < 0.001.
 2. **Every fold.** Improvement is positive in all 5 folds.
-3. **Materiality floor.** The mean paired improvement is at least 2% of the CV deviance
-   gap between GLM-A and the GBM. **ASSUMPTION:** 2% is a judgement threshold set by the
-   project owner. It screens out effects that pass statistical tests only because the
-   learn set has 541,840 rows but are too small to justify an extra tariff table.
+3. **Materiality floor.** The mean paired improvement is at least **5%** of the CV deviance
+   gap between GLM-A and the GBM. The gap is 0.001578 (Stage 3,
+   `frequency_models_stage3.csv`), so the floor is about 0.0000789. **ASSUMPTION:** 5%
+   is a judgement threshold set by the project owner. It was raised from an initial 2%.
+   It screens out effects that pass statistical tests only because the learn set is
+   large (541,840 rows) but are too small to justify an extra tariff table.
 4. **Stable and sensible.** Coefficient signs agree across the five fold fits, and the
    relativities are monotone or explainable, with no level outside a plausible range.
    This is checked from the fold-fit tables and recorded per candidate.
+
+5. **Cap.** At most 5 interactions are accepted. **ASSUMPTION:** this limit was set by the
+   owner to keep the tariff carryable. Forward selection stops when no candidate passes
+   rules 1 to 4, or when 5 have been accepted.
 
 Each accepted interaction's share of the gap closed,
 (improvement / (GLM-A CV deviance - GBM CV deviance)), is reported per interaction and
@@ -481,3 +487,19 @@ cumulatively.
   fixes the overall level for that mix. A book with more full-year policies would be
   overcharged by an amount this data cannot quantify without lapse information.
   Recorded in LIMITATIONS.
+
+### D022 addendum: where short exposure is concentrated
+
+`reports/tables/exposure_by_segment.csv` (learn set):
+- **Share of policies with exposure under 0.25 years.** 31.9% overall. 43.8% at DrivAge
+  18-20, falling steadily to 18.0% at 75+. By BonusMalus, 27.2% at 50 against 48.0% at
+  100-110.
+- **Frequency on short policies.** Within most bands, short-exposure policies claim at
+  about twice the annual rate of the rest: 0.1373 against 0.0690 overall, and 0.4147
+  against 0.2001 at DrivAge 18-20. BonusMalus 111+ is the exception, at 0.3554 against
+  0.3841.
+- **Implication.** Short exposure is concentrated in segments that already carry high
+  relativities. Under the offset, part of the short-exposure excess can be absorbed
+  into the young-driver and high-BonusMalus relativities. Stage 6 measures this by
+  refitting GLM-B with log(exposure) as a control variable and comparing the
+  relativities.

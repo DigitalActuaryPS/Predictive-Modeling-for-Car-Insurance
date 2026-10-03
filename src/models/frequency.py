@@ -59,6 +59,27 @@ def log_exposure_diagnostic(cfg, base, learn) -> pd.DataFrame:
     }])
 
 
+def exposure_by_segment(learn: pd.DataFrame, factors=("DrivAge_band", "BonusMalus_band")) -> pd.DataFrame:
+    """Where is short exposure concentrated? Learn set, by level of each factor."""
+    short = learn["Exposure"] < 0.25
+    rows = []
+    for f in factors:
+        g = learn.assign(short=short).groupby(f, observed=True)
+        t = g.agg(policies=("IDpol", "size"), exposure=("Exposure", "sum"), mean_exposure=("Exposure", "mean"),
+                  share_policies_exposure_lt_0_25=("short", "mean"))
+        fs = learn[short].groupby(f, observed=True)[["ClaimNb", "Exposure"]].sum()
+        fl = learn[~short].groupby(f, observed=True)[["ClaimNb", "Exposure"]].sum()
+        t["frequency_exposure_lt_0_25"] = fs["ClaimNb"] / fs["Exposure"]
+        t["frequency_exposure_ge_0_25"] = fl["ClaimNb"] / fl["Exposure"]
+        t.insert(0, "factor", f)
+        rows.append(t.rename_axis("level").reset_index())
+    all_row = pd.DataFrame([{"factor": "all", "level": "all", "policies": len(learn), "exposure": learn["Exposure"].sum(),
+                             "mean_exposure": learn["Exposure"].mean(), "share_policies_exposure_lt_0_25": short.mean(),
+                             "frequency_exposure_lt_0_25": learn.loc[short, "ClaimNb"].sum() / learn.loc[short, "Exposure"].sum(),
+                             "frequency_exposure_ge_0_25": learn.loc[~short, "ClaimNb"].sum() / learn.loc[~short, "Exposure"].sum()}])
+    return pd.concat(rows + [all_row], ignore_index=True)
+
+
 def cv_frequency_no_offset(make_terms, learn, n_folds):
     devs = []
     for k in range(n_folds):
@@ -93,6 +114,7 @@ def run() -> dict:
 
     # Exposure proportionality diagnostic (not used for pricing)
     log_exposure_diagnostic(cfg, base, learn).to_csv(tables / "log_exposure_diagnostic.csv", index=False)
+    exposure_by_segment(learn).to_csv(tables / "exposure_by_segment.csv", index=False)
 
     # GBM: tune, comparable CV with fixed rounds, final fit
     tuning = G.tune(learn, cfg)
