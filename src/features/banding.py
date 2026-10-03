@@ -78,9 +78,11 @@ class Banding:
         out = self.transform(learn)
         rows = []
         for f in self.factor_columns():
-            g = out.groupby(f, observed=False).agg(exposure=("Exposure", "sum"), claims=("ClaimNb", "sum"))
+            g = out.groupby(f, observed=False).agg(
+                policies=("IDpol", "size"), exposure=("Exposure", "sum"), claims=("ClaimNb", "sum"))
             for lvl, r in g.iterrows():
-                rows.append({"factor": f, "level": str(lvl), "exposure": r["exposure"], "claims": r["claims"],
+                rows.append({"factor": f, "level": str(lvl), "policies": int(r["policies"]),
+                             "exposure": r["exposure"], "claims": r["claims"],
                              "is_base": lvl == self.base[f],
                              "meets_minimum": r["exposure"] >= self.cfg["min_band_exposure"]})
         return pd.DataFrame(rows)

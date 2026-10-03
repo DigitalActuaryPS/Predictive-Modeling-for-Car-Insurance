@@ -7,10 +7,10 @@ this repo) and the rationale. Assumptions are marked **ASSUMPTION**.
 ## Working rules
 
 - Work in stages. At the end of each stage: run all code, run the tests, commit, and
-  push the working branch (`claude/sweet-thompson-thk7jp`) to `origin`, but only while
-  the repository is private. Pushing is on hold while it shows as public.
-- The GitHub repository stays **private**. Do not merge to `main`, change repository
-  visibility, or create releases or tags without the owner's explicit approval.
+  push the working branch (`claude/sweet-thompson-thk7jp`) to `origin`.
+- The repository is public by the owner's decision. Do not merge to `main`, change
+  repository visibility, or create releases or tags without the owner's explicit
+  approval.
 - Every number in README, DECISIONS and narrative files comes from a file written by
   code in this repo (`reports/tables/`, `reports/figures/`, `reports/*.md`).
 - Raw and processed data are never committed (`data/` is git-ignored).
@@ -325,7 +325,12 @@ this repo) and the rationale. Assumptions are marked **ASSUMPTION**.
   response, and it moves 1,820 policy-years into a level of 51,746.
 - **Base levels.** In `reports/tables/base_levels.csv`: DrivAge 45-54, VehAge 2-4,
   VehPower 6, BonusMalus 50, LogDensity 4.5-5.5, VehBrand B1, Region Centre, VehGas
-  Regular. Each is its factor's highest-exposure level on learn.
+  Regular. Each is its factor's highest-exposure level on learn, and
+  `tests/test_banding.py` checks this. For VehBrand, B1 has 76,339.3 policy-years
+  against B2's 75,915.6, so the margin is narrow and the base choice has no practical
+  consequence. B12 has the most learn **policies** (135,689 against B1's 130,053), but
+  its policies are shorter, so its exposure is lower (53,565.6). Base levels follow
+  exposure, not policy count.
 
 ## D017 Bands rather than splines for DrivAge and BonusMalus
 
@@ -357,3 +362,25 @@ this repo) and the rationale. Assumptions are marked **ASSUMPTION**.
   sd of the paired fold differences. Measured against the sd of deviance levels, no
   plausible single effect could pass, so that reading would make the test meaningless.
   This interpretation is a judgement call.
+
+## D018 Acceptance rule for Stage 4 interactions (set before running Stage 4)
+
+An interaction candidate is accepted into GLM-B only if **all** of the following hold.
+Each is evaluated on the shared 5 CV folds, against the current model in forward
+selection.
+
+1. **Beyond noise.** The mean paired fold improvement in Poisson deviance (current minus
+   candidate) exceeds the sd of the five paired differences (D017), **or** a likelihood
+   ratio test on the full learn set is significant at p < 0.001.
+2. **Every fold.** Improvement is positive in all 5 folds.
+3. **Materiality floor.** The mean paired improvement is at least 2% of the CV deviance
+   gap between GLM-A and the GBM. **ASSUMPTION:** 2% is a judgement threshold set by the
+   project owner. It screens out effects that pass statistical tests only because the
+   learn set has 541,840 rows but are too small to justify an extra tariff table.
+4. **Stable and sensible.** Coefficient signs agree across the five fold fits, and the
+   relativities are monotone or explainable, with no level outside a plausible range.
+   This is checked from the fold-fit tables and recorded per candidate.
+
+Each accepted interaction's share of the gap closed,
+(improvement / (GLM-A CV deviance - GBM CV deviance)), is reported per interaction and
+cumulatively.
