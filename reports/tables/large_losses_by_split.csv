@@ -1,0 +1,3 @@
+split,claims,claim_amount,large_claims,attritional_capped_amount,excess_amount,largest_claim,excess_share_of_amount,large_load_on_capped,threshold
+holdout,5373,14693136.74,45,8508040.58,6185096.16,4075400.56,0.420951378146638,0.7269706934096453,20000
+learn,21071,45216079.76,170,33847128.96,11368950.8,1403057.4,0.2514360125942949,0.3358911420060368,20000

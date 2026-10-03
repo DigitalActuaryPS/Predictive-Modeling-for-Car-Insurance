@@ -1,0 +1,4 @@
+step,policies_affected,exposure_affected,claims_affected
+recount ClaimNb from sev,0,0.0,0
+cap Exposure at 1.0,1224,139.34000000000003,54
+cap ClaimNb at 4 (frequency only),8,0.0,39

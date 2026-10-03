@@ -29,3 +29,17 @@ shap:
   # model's tree count (TreeSHAP interaction cost is linear in rows and in trees).
   sample_size_max: 20000
   runtime_budget_seconds: 900
+
+cleaning:
+  exposure_cap: 1.0          # policy-years; see DECISIONS D008
+  claim_count_cap: 4         # frequency model only; see DECISIONS D009
+  # Large-loss threshold for the attritional severity model; see DECISIONS D010.
+  large_loss_threshold: 20000
+  large_loss_candidates: [5000, 10000, 20000, 30000, 50000, 100000, 200000]
+
+split:
+  # Rows sharing all rating covariates form one group (possible same-risk splits);
+  # groups are assigned whole to the holdout or to one CV fold. See DECISIONS D011.
+  group_covariates: [Area, VehPower, VehAge, DrivAge, BonusMalus, VehBrand, VehGas, Density, Region]
+  holdout_share: 0.2
+  n_folds: 5

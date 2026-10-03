@@ -21,3 +21,11 @@ def raw(cfg):
         "sev": pd.read_parquet(path / "freMTPL2sev.parquet"),
         "meta": json.loads((path / "source_metadata.json").read_text()),
     }
+
+
+@pytest.fixture(scope="session")
+def processed(cfg):
+    path = cfg["paths"]["processed"]
+    if not (path / "policies.parquet").exists():
+        pytest.fail("processed data missing: run `make all` first")
+    return {"policies": pd.read_parquet(path / "policies.parquet"), "claims": pd.read_parquet(path / "claims.parquet")}

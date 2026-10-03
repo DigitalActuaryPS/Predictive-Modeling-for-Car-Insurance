@@ -130,3 +130,126 @@ this repo) and the rationale. Assumptions are marked **ASSUMPTION**.
   677,991 rows takes 23.14 s. Stage 3 to 4 forward selection needs on the order of 100
   fits, so the GLM fitter needs to be faster than statsmodels' default IRLS (see the
   Stage 3 entries).
+
+---
+
+## Stage 1: Data and cleaning
+
+## D008 Exposure: cap at 1 year, keep short exposures
+
+- **Decision.** Cap Exposure at 1.0 policy-year. Keep every policy with exposure above
+  zero, including very short ones.
+- **Evidence.** `reports/tables/exposure_profile.csv` (raw values) and
+  `reports/tables/cleaning_log.csv`.
+  - 1,224 policies have exposure above 1, totalling 1,363.34 policy-years. Their raw
+    frequency is 0.0396, the lowest of any band; full-year policies (exposure exactly 1)
+    run at 0.0548. Capping removes 139.34 policy-years and affects 54 claims.
+  - Frequency falls steadily as exposure rises: 1.089 for 1 to 7 days (10,498 policies,
+    92.75 policy-years), 0.244 for 7 days to 0.05, 0.143 for 0.05 to 0.1, and 0.0548 for
+    full-year policies. Policies of 1 day or less (3,105) run at 0.353.
+- **Alternatives.**
+  - Drop exposures above 1. This loses 1,224 valid policies over what is most likely a
+    recording issue.
+  - Drop short exposures, for example under 7 days. Policies of 7 days or less are
+    13,603 policies but only 101.25 policy-years (0.03% of exposure), so dropping them
+    barely changes the fit. It would, however, hide a real feature of the data.
+- **Rationale.**
+  - **ASSUMPTION:** policies are annual contracts, and exposure above 1 is a recording or
+    aggregation artefact. The source documentation says policies are "observed mostly on
+    one year".
+  - High frequency at short exposure is consistent with mid-term cancellation after a
+    claim, such as a write-off, where the claim causes the short exposure. Removing these
+    policies does not remove the effect; the effect means claim counts are not
+    proportional to exposure. The offset `log(exposure)` still assumes proportionality.
+    This is noted in LIMITATIONS rather than fixed with an exposure-band rating factor,
+    because a tariff cannot rate on a duration that is unknown at inception.
+
+## D009 Claim count cap at 4 (frequency model only)
+
+- **Decision.** Cap ClaimNb at 4 for the frequency models. Severity keeps every claim
+  record, including claims beyond the 4th on a policy.
+- **Evidence.** `reports/tables/claim_count_profile.csv` and `cleaning_log.csv`.
+  - 5 policies have exactly 4 claims.
+  - 8 policies have 5 to 16 claims: 71 claims on 2.38 policy-years. Their median
+    DrivAge is 52 to 59.5 and median BonusMalus 50, the best possible level. That is
+    implausible for genuine repeat claimants, whose BonusMalus rises with claims, and
+    looks like fleet or data artefacts.
+  - The cap removes 39 claims from frequency, 0.15% of 26,444.
+- **Alternatives.**
+  - No cap. A handful of rows with 9 to 16 claims on under 0.4 policy-years would get
+    large weight in Poisson fits, the GBM in particular.
+  - Drop the 8 policies. This loses their claim amounts, which individually look
+    ordinary, from severity.
+  - Cap at 3. This would remove 5 more plausible 4-claim policies.
+- **Consequence.** Modelled claim counts sit 39 below recorded counts, so
+  frequency x severity understates recorded losses by about that share. The tariff is
+  rebased to actual learn-set losses in Stage 6, which absorbs this. 4 matches the cap
+  used by Noll, Salzmann and Wüthrich.
+
+## D010 Large-loss threshold: 20,000
+
+- **Decision.** Treat claims above 20,000 as large. The attritional severity model uses
+  amounts capped at 20,000, and the excess above 20,000 is spread as a flat load. The
+  threshold is chosen on learn claims only.
+- **Evidence.** `reports/figures/severity_tail.png`,
+  `reports/tables/severity_tail_thresholds.csv`, `severity_top_claims.csv` and
+  `large_losses_by_split.csv`.
+  - **Tail shape.** The log-log survival curve is roughly linear above a few thousand,
+    a heavy Pareto-type tail. The mean excess rises steeply up to about 20,000, then at a
+    lower, roughly linear slope out to about 80,000. Above that it rests on few claims.
+  - **Concentration.** The largest learn claim (1,403,057.40) is 3.1% of the learn claim
+    amount. The top 10 claims make up 12.6% and the top 100 make up 28.6%.
+  - **At 20,000.** This is the 99.19th percentile of learn claims, with 170 claims (0.81%)
+    above it. Those claims carry 32.7% of the amount, and the excess above 20,000 is
+    25.1% of the amount. The load on capped losses is 0.336.
+  - **Stability against neighbouring thresholds.** The attritional mean varies 3.2%
+    across folds at 20,000, against 2.6% at 10,000 and 5.6% at 50,000. The load itself is
+    volatile at every threshold: at 20,000 it ranges from 0.158 to 0.497 across the five
+    learn folds.
+- **Alternatives.**
+  - 10,000 makes the attritional mean slightly more stable, but pools 30.7% of the amount
+    into a load that does not vary by risk.
+  - 50,000 or above leaves 66 or fewer learn claims to set the load, and the attritional
+    mean becomes noticeably less stable.
+- **Rationale.** 20,000 sits at the visible change in the mean excess slope. It keeps
+  three quarters of the claim amount in the risk-rated attritional model, and leaves 170
+  learn claims to estimate the load.
+- **Holdout warning (not used for the choice).** The holdout contains the largest claim in
+  the data (4,075,400.56). The holdout excess is 42.1% of its amount, and its load on
+  capped losses is 0.727 against 0.336 on learn. Holdout burning-cost reconciliation in
+  Stage 5 will therefore show modelled below actual, driven by this one claim.
+- **ASSUMPTION:** claim amounts are fully developed and in consistent money terms. There
+  are no dates to trend or develop them (see LIMITATIONS).
+
+## D011 Holdout and CV split: grouped by identical rating covariates
+
+- **Decision.** Rows sharing all nine rating covariates form one group: Area, VehPower,
+  VehAge, DrivAge, BonusMalus, VehBrand, VehGas, Density and Region. A random 20% of
+  groups is the untouched holdout. The remaining groups are dealt at random into 5 CV
+  folds. Every model and every selection step uses these folds.
+- **Evidence.** `reports/tables/split_balance.csv`.
+  - The holdout holds 20.08% of policies.
+  - Each fold holds about 16.0% of policies and about 84,565 groups.
+  - Fold frequencies range from 0.0722 to 0.0745; the holdout is 0.0745.
+- **Alternatives.**
+  - Plain random rows. Possibly the same risk split across rows would then sit on both
+    sides of a split, which leaks information and flatters CV scores, the GBM's
+    especially.
+  - Stratify on claim count. With about 4,200 claims per fold, random group assignment
+    already balances frequency, so stratification adds complexity for no visible gain.
+- **ASSUMPTION:** rows with identical covariates may be the same risk recorded across
+  several rows. The data cannot confirm this. Grouping guards against the leakage at
+  almost no cost, because the largest group has 22 rows.
+
+## D012 Fixed-amount claims (IRSA-IDA convention)
+
+- **Finding.** In `reports/tables/severity_fixed_amounts.csv`, three amounts make up
+  37.2% of learn claims: 1,204.00 (18.2%), 1,128.12 (11.6%) and 1,172.00 (7.7%). The
+  CASdatasets documentation says some amounts are fixed under the French IRSA-IDA
+  claims convention between insurers.
+- **Decision.** Keep these claims as recorded. A Gamma GLM estimates the mean severity
+  by risk group, and it remains consistent for the mean even though the claim
+  distribution is lumpy and not Gamma.
+- **Consequence.** Severity relativities will be flat for many factors, because much of
+  the claim amount is a convention rate rather than a cost driven by the risk. This is
+  noted for Stage 5 and LIMITATIONS.
