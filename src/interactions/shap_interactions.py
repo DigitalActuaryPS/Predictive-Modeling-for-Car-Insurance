@@ -4,7 +4,7 @@
   min(sample_size_max, budget / cost per row), cost per row scaled from the benchmark
   by the tuned model's tree count.
 - Pair strength: mean over rows of |phi_ij| + |phi_ji| = 2 |phi_ij| (log-frequency scale).
-- Cross-check: Friedman's H^2 for the top pairs on a smaller subsample, computed on the
+- Cross-check: Friedman's H**2 for the top pairs on a smaller subsample, computed on the
   raw (log) score with centred partial dependence.
 - Evidence from the data itself: two-way A/E heatmaps of observed claims against
   GLM-A out-of-fold predicted claims on the learn set. GLM-A has main effects only, so
@@ -58,7 +58,7 @@ def pair_strength(iv: np.ndarray, names: list[str]) -> pd.DataFrame:
 
 
 def friedman_h2(model: lgb.Booster, X: pd.DataFrame, f1: str, f2: str) -> float:
-    """H^2_jk = sum (PD_jk - PD_j - PD_k)^2 / sum PD_jk^2, centred PDs at the sample points."""
+    """H**2_jk = sum (PD_jk - PD_j - PD_k)**2 / sum PD_jk**2, centred PDs at the sample points."""
     n = len(X)
 
     def pd_at(cols):
@@ -178,9 +178,9 @@ def run() -> pd.DataFrame:
 
 def two_way_summary(ae: pd.DataFrame, min_exposure: float, model: str) -> pd.DataFrame:
     """Per pair, over cells with at least min_exposure policy-years:
-    - mean_z_squared: sum(z^2) / cells
-    - z2_per_df_rc: sum(z^2) / ((rows - 1)(cols - 1)), the complete-table independence df
-    - z2_per_df_incomplete: sum(z^2) / (cells - rows - cols + 1), the df when some cells are
+    - mean_z_squared: sum(z**2) / cells
+    - z2_per_df_rc: sum(z**2) / ((rows - 1)(cols - 1)), the complete-table independence df
+    - z2_per_df_incomplete: sum(z**2) / (cells - rows - cols + 1), the df when some cells are
       excluded (quasi-independence). Headline measure: it equals the rc form for a complete
       table and stays valid when sparse cells are dropped.
     Each is about 1 if the model leaves no systematic two-way pattern."""

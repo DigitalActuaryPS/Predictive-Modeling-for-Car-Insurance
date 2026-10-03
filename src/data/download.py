@@ -80,6 +80,10 @@ def download(force: bool = False) -> dict:
     meta["casdatasets_version"] = next(
         line.split(":", 1)[1].strip() for line in desc.splitlines() if line.startswith("Version:")
     )
+    # What the source documentation says about the data period (quoted, not inferred)
+    with urllib.request.urlopen(cfg["data"]["documentation_url"]) as resp:
+        rd = resp.read().decode()
+    meta["documented_period"] = " ".join(line.strip() for line in rd.splitlines() if "period is" in line.lower()) or "not stated"
     for name, url in cfg["data"]["urls"].items():
         rda = raw / f"{name}.rda"
         if force or not rda.exists():
@@ -107,6 +111,7 @@ def write_source_table(meta: dict, cfg: dict) -> None:
             "file": name,
             "source": meta["source"],
             "casdatasets_version": meta["casdatasets_version"],
+            "documented_period": meta.get("documented_period", "not recorded"),
             "retrieved": meta["retrieved"],
             "rows": info["rows"],
             "idpol_raw_unique_labels": info["idpol_raw_unique_labels"],

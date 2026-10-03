@@ -831,8 +831,8 @@ final GLM-B. The cap of 5 did not bind.
 
 | Threshold | Learn claims above | Load | Load range across 5 learn folds | Share of burning cost in the flat load | Holdout attritional actual / modelled |
 |---|---|---|---|---|---|
-| 10,000 | 388 | 0.442 | 0.236 to 0.601 | 30.7% | 1.006 |
-| 20,000 | 170 | 0.336 | 0.159 to 0.497 | 25.1% | 1.008 |
+| 10,000 | 388 | 0.442 | 0.235 to 0.601 | 30.7% | 1.006 |
+| 20,000 | 170 | 0.336 | 0.158 to 0.497 | 25.1% | 1.008 |
 | 50,000 | 66 | 0.223 | 0.102 to 0.399 | 18.2% | 1.021 |
 
   - A higher threshold puts less of the cost into the unrated flat load, but makes the
@@ -853,8 +853,9 @@ final GLM-B. The cap of 5 did not bind.
   - The base rate is 108.56. That is base frequency 0.05240 x base severity 1,549.70 x
     1.3359 x rebase 1.00069.
   - Learn premium / learn losses = 1.000000. The test requires this within 0.1%.
-  - The GLM-A tariff (base rate 113.41) is built the same way, as the current premium
-    for Stage 7.
+  - The current tariff for Stage 7 is built the same way from GLM-A-mono (D041), with
+    base rate 113.82. The raw GLM-A tariff (base rate 113.41) is used only in the impact
+    bridge.
 - **Confidence intervals.** 95% CIs come from GLM standard errors. Severity standard
   errors are approximate (D032). **ASSUMPTION:** the combined CIs treat the frequency and
   severity estimates as independent.

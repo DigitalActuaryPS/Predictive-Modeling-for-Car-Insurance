@@ -151,7 +151,7 @@ def tariff_vs_gbm(hold, rate_t, rate_g, load, figures, tables):
     fig, ax = plt.subplots(figsize=(7, 3.8))
     ax.plot(t["bin"], t["obs_per_exposure"], "o-", color=COLORS["obs"], label="observed (capped x (1+load))")
     ax.plot(t["bin"], t["t_per_exposure"], "s--", color=COLORS["glm_b"], label="tariff (GLM-B)")
-    ax.plot(t["bin"], t["g_per_exposure"], "^--", color=COLORS["gbm"], label="GBM-based premium")
+    ax.plot(t["bin"], t["g_per_exposure"], "D--", color=COLORS["gbm"], label="GBM-based premium")
     ax.set_xlabel("decile of tariff / GBM premium ratio")
     ax.set_ylabel("loss cost per policy-year")
     ax.set_xticks(t["bin"])
@@ -279,7 +279,7 @@ def write_markdown(tb, md_tables, inter, accepted, summ, vs, cfg):
         out += [f"## {f}", "", fmt_table(t, cols), ""]
     out += ["## Interactions", "",
             "Multipliers apply on top of the main-effect relativities. BonusMalus-slope terms are exact per policy "
-            "as (BonusMalus / 50) ^ coefficient; the tables evaluate them at each band's exposure-weighted mean BonusMalus.", ""]
+            "as (BonusMalus / 50) ** coefficient; the tables evaluate them at each band's exposure-weighted mean BonusMalus.", ""]
     for name, t in inter.items():
         out += [f"### {name}", "", fmt_table(t, {c: c for c in t.columns}), ""]
     out += ["## Tariff vs GBM (holdout)", "",

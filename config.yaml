@@ -12,6 +12,7 @@ data:
     freMTPL2freq: https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2freq.rda
     freMTPL2sev: https://raw.githubusercontent.com/dutangc/CASdatasets/master/data/freMTPL2sev.rda
   description_url: https://raw.githubusercontent.com/dutangc/CASdatasets/master/DESCRIPTION
+  documentation_url: https://raw.githubusercontent.com/dutangc/CASdatasets/master/man/freMTPL.Rd
   # Historical releases of the two files in the CASdatasets git history, compared by
   # src/data/versions.py (not part of `make all`; needs network access to GitHub).
   history:

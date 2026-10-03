@@ -111,7 +111,7 @@ def double_lift_plot(t: pd.DataFrame, name_a: str, name_b: str, color_a: str, co
     fig, ax = plt.subplots(figsize=(7, 3.8))
     ax.plot(t["bin"], t["observed_frequency"], "o-", color=COLORS["obs"], ms=4, label="observed")
     ax.plot(t["bin"], t["pred_a_frequency"], "s--", color=color_a, ms=4, label=name_a)
-    ax.plot(t["bin"], t["pred_b_frequency"], "^--", color=color_b, ms=4, label=name_b)
+    ax.plot(t["bin"], t["pred_b_frequency"], "D--", color=color_b, ms=4, label=name_b)
     ax.set_xticks(t["bin"])
     ax.set_xlabel(f"decile of {name_a} / {name_b} prediction ratio")
     ax.set_ylabel("claim frequency")

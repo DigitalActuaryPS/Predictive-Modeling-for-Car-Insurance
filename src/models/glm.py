@@ -148,7 +148,7 @@ def fit_glm(terms: list, df: pd.DataFrame, y: np.ndarray, family: str = "poisson
     dev_old = np.inf
     for it in range(1, max_iter + 1):
         mu = np.exp(eta)
-        w = pw * mu if family == "poisson" else pw.copy()  # log link: w = pw * mu^2 / V(mu)
+        w = pw * mu if family == "poisson" else pw.copy()  # log link: w = pw * mu**2 / V(mu)
         z = eta - off + (y - mu) / mu
         XtW = X.T * w
         c = cho_factor(XtW @ X)
