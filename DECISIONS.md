@@ -770,7 +770,8 @@ Gap closed: 49.0% on CV and 40.8% on holdout. The cap of 5 did not bind.
 - **Why severity is simpler than frequency.**
   - **Volume.** 19,893 claim policies against 541,840 policies.
   - **Noise.** The fold-to-fold sd of severity CV deviance is about 3.7% of its mean,
-    against about 1.4% for frequency.
+    against 1.3% to 1.4% for the frequency GLMs (GLM-B 0.003053 / 0.238488; GLM-A
+    0.003246 / 0.239260).
   - **Fixed-amount claims.** 37.2% of claims are paid at one of three fixed amounts
     (D012), which damps any risk signal in severity.
   - **The first banded fit was rejected.** Holdout deviance got worse with banded
