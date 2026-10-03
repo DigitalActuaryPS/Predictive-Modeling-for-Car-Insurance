@@ -1,0 +1,5 @@
+model,mean_z_squared,cells_abs_z_gt_1_96,cells
+GLM-A,3.01163459175939,25,125
+after young_lbm_senior_malus,2.9668059590067117,25,125
+after b12_x_bm_3grp,2.215438688166514,17,125
+diagnostic: final model + bm_x_density (not accepted),2.0421767965331856,19,125

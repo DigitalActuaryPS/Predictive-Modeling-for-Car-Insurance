@@ -1,3 +1,4 @@
-pair,reason
-DrivAge x LogDensity,two-way A/E vs GLM-A shows no pattern (mean z^2 below 1)
-DrivAge x Region,two-way A/E vs GLM-A shows no pattern (mean z^2 below 1)
+pair,mean_z_squared_vs_glm_a,cells,cells_abs_z_gt_1_96,expected_by_chance,reason
+DrivAge x LogDensity,0.6385054586395265,87,1,4.3500000000000005,no excess over Poisson noise in the raw two-way A/E against GLM-A; rejected without a GLM test
+DrivAge x VehPower,1.150657757730201,78,5,3.9,no excess over Poisson noise in the raw two-way A/E against GLM-A; rejected without a GLM test
+DrivAge x Region,0.7908330950066982,137,2,6.8500000000000005,no excess over Poisson noise in the raw two-way A/E against GLM-A; rejected without a GLM test

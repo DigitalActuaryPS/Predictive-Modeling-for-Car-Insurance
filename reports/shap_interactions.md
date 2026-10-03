@@ -4,42 +4,43 @@
 
 ## What the GBM found
 
-SHAP interaction values for the tuned GBM, on 20,000 learn policies stratified by claim indicator, rank these pairs highest: DrivAge x BonusMalus, BonusMalus x VehBrand, BonusMalus x Region, BonusMalus x LogDensity, DrivAge x LogDensity, VehAge x VehBrand, DrivAge x VehPower, DrivAge x Region. 7 of the 8 involve BonusMalus or driver age. Friedman's H-statistic puts DrivAge x BonusMalus first as well. This fits how French bonus-malus works: the coefficient starts at 1.00 (100 here) and falls 5% a year without claims (Code des assurances, art. A121-1). The same BonusMalus therefore means a novice at 25 but a recent claimant at 65.
+SHAP interaction values for the tuned GBM, on 20,000 learn policies stratified by claim indicator, rank these pairs highest: DrivAge x BonusMalus, BonusMalus x VehBrand, BonusMalus x Region, BonusMalus x LogDensity, DrivAge x LogDensity, VehAge x VehBrand, DrivAge x VehPower, DrivAge x Region. 7 of the 8 involve BonusMalus or driver age. Friedman's H-statistic puts DrivAge x BonusMalus first as well. Under French bonus-malus rules the coefficient starts at 1.00 (100 here) and falls 5% a year without claims (Code des assurances, art. A121-1), so one BonusMalus level means a novice at 25 but a recent claimant at 65.
 
 ## Which effects are real
 
-Each pair was checked against raw learn data: a two-way table of observed claims against out-of-fold predictions. A mean squared z-score near 1 means the model leaves no pattern.
+Two-way tables of observed claims against out-of-fold predictions on learn data; mean z^2 near 1 means no pattern left.
 
 | Pair | vs GLM-A | vs GLM-B |
 |---|---|---|
-| DrivAge x BonusMalus | 4.41 | 2.55 |
-| BonusMalus x VehBrand | 2.79 | 0.91 |
-| BonusMalus x Region | 3.01 | 2.26 |
-| BonusMalus x LogDensity | 1.74 | 1.54 |
-| DrivAge x LogDensity | 0.64 | 0.62 |
-| VehAge x VehBrand | 1.41 | 1.38 |
-| DrivAge x VehPower | 1.15 | 1.16 |
-| DrivAge x Region | 0.79 | 0.73 |
+| DrivAge x BonusMalus | 4.41 | 2.52 |
+| BonusMalus x VehBrand | 2.79 | 0.88 |
+| BonusMalus x Region | 3.01 | 2.22 |
+| BonusMalus x LogDensity | 1.74 | 1.53 |
+| DrivAge x LogDensity | 0.64 | 0.61 |
+| VehAge x VehBrand | 1.41 | 1.37 |
+| DrivAge x VehPower | 1.15 | 1.17 |
+| DrivAge x Region | 0.79 | 0.72 |
 
-Not taken forward (no pattern in the data): DrivAge x LogDensity, DrivAge x Region.
+Rejected untested (no excess over noise): DrivAge x LogDensity (1 significant cells, 4.4 expected); DrivAge x VehPower (5 significant cells, 3.9 expected); DrivAge x Region (2 significant cells, 6.9 expected).
 
 ## What survived
 
-Candidates in tariff-friendly forms were added to GLM-A by forward selection on the shared CV folds. Accepted:
+Tariff-friendly forms were added to GLM-A one pair at a time, in an owner-set order, on the shared CV folds. Accepted:
 
-- **b12_x_lbm**: log(BM/50) slope shift for brand B12 (1 param). Improved all 5 folds; 19.9% of the gap.
-- **young_lbm_senior_malus**: log(BM/50) slope shift for age <30; step for age 55+ with BM > 50 (2 params). Improved all 5 folds; 16.3% of the gap.
+- **young_lbm_senior_malus**: log(BM/50) slope shift for age <30; step for age 55+ with BM > 50 (2 params). Improved all 5 folds; 16.9% of the gap.
+- **b12_x_bm_3grp**: B12 x BM groups 51-99 and 100+, base 50 (2 params). Improved all 5 folds; 20.4% of the gap.
 
-Rejected:
+Rejected or not tested:
 
-- age_x_lbm_2grp: multiplier up to 2.01, above 2.0.
-- age_x_lbm_4grp: multiplier up to 2.19, above 2.0.
-- density_x_lbm: 3.0% of gap, below 5% floor.
-- region_x_lbm: unstable signs across folds.
+- bm_x_density: 3.9% of gap, below 5% floor.
+- b12_x_bm_linear: passed, but another form of the same pair improved more.
+- region_bm_slope_2grp/region_bm_slope_3grp: not tested, prerequisite bm_x_density not accepted.
 - b12_x_newcar: 3 of 5 folds; 2.3% of gap, below 5% floor.
-- b12_x_vehage_grp: 3 of 5 folds; 2.8% of gap, below 5% floor.
-- young_x_highpower: 2.1% of gap, below 5% floor.
 
 ## Share of GBM lift captured
 
-GLM-B closes 36.1% of the CV deviance gap between GLM-A and the GBM (27.9% on holdout) with 3 extra parameters. Holdout Gini: GLM-A 0.294, GLM-B 0.300, GBM 0.316. The largest pattern left is BonusMalus x Region, still visible in GLM-B residuals.
+GLM-B closes 37.3% of the CV deviance gap between GLM-A and the GBM (28.0% on holdout) with 4 extra parameters. Holdout Gini: GLM-A 0.294, GLM-B 0.299, GBM 0.316. The largest pattern left is BonusMalus x Region. Its residual mean z^2 goes from 3.01 under GLM-A to 2.97 after young_lbm_senior_malus, 2.22 after b12_x_bm_3grp, 2.04 final model + bm_x_density (not accepted).
+
+## B12 and short exposure
+
+B12 policies are shorter (mean exposure 0.39 against 0.57) and newer (46.3% aged 0-1 against 9.9%). Refitting GLM-B with log(exposure) as a free covariate moves the B12 coefficients by a factor of 0.89 and 0.88. The shrinkage is under 25%, so the effect is not mainly a short-exposure artefact.

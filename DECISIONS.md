@@ -534,44 +534,70 @@ cumulatively.
   6. VehAge x VehBrand, 0.022
   7. DrivAge x VehPower, 0.016
   8. DrivAge x Region, 0.016
-- **H-statistic.** Friedman's H² agrees on the leader (DrivAge x BonusMalus, 0.047). It
-  ranks VehAge x VehBrand second (0.045), against sixth by SHAP. The two measures weigh
-  interaction strength differently, so each pair is confirmed against the data rather
-  than chosen by either ranking alone.
-- **Confirmation.** Each pair gets a two-way table of observed claims against GLM-A
-  out-of-fold predictions on the learn set, and the mean z² is taken over cells with at
-  least 200 policy-years. From `two_way_ae_summary_glm_a.csv`:
-  - DrivAge x BonusMalus: 4.41
-  - BonusMalus x Region: 3.01
-  - BonusMalus x VehBrand: 2.79
-  - BonusMalus x LogDensity: 1.74
-  - VehAge x VehBrand: 1.41
-  - DrivAge x VehPower: 1.15
-  - DrivAge x Region: 0.79
-  - DrivAge x LogDensity: 0.64
-- **Decision.** DrivAge x LogDensity and DrivAge x Region show no excess over noise in the
-  raw data (mean z² below 1) and are treated as GBM artefacts, with no candidate built.
-  The other six pairs get candidates.
+- **H-statistic.** Friedman's H² agrees on the leader (0.047). It ranks VehAge x VehBrand
+  second (0.045).
+- **Confirmation against raw data.** Each pair gets a two-way table of observed claims
+  against GLM-A out-of-fold predictions on the learn set. Statistics use cells with at
+  least 200 policy-years: mean z² across cells, and the count of cells with |z| > 1.96
+  against about 5% expected by chance. Source: `two_way_ae_summary_glm_a.csv`. The
+  ordered tables are `two_way_ae_pivot_glm_a_*.csv` and `two_way_ae_pivot_glm_b_*.csv`,
+  including DrivAge x BonusMalus.
 
-## D025 Candidate forms (GLM-implementable)
+| Pair | Mean z² | Cells with abs(z) > 1.96 | Cells | Expected by chance |
+|---|---|---|---|---|
+| DrivAge x BonusMalus | 4.41 | 33 | 88 | 4.4 |
+| BonusMalus x Region | 3.01 | 25 | 125 | 6.2 |
+| BonusMalus x VehBrand | 2.79 | 16 | 91 | 4.5 |
+| BonusMalus x LogDensity | 1.74 | 14 | 90 | 4.5 |
+| VehAge x VehBrand | 1.41 | 11 | 83 | 4.2 |
+| DrivAge x VehPower | 1.15 | 5 | 78 | 3.9 |
+| DrivAge x Region | 0.79 | 2 | 137 | 6.9 |
+| DrivAge x LogDensity | 0.64 | 1 | 87 | 4.4 |
 
-- **Decision.** Candidates are defined in `src/interactions/candidates.py`. BonusMalus
-  interactions are written as slope shifts on lbm = log(BonusMalus / 50), which is 0 at
-  the floor of 50. That adds 1 or 2 parameters on top of the banded BonusMalus factor,
-  instead of an 11-band x k-level table. DrivAge x BonusMalus has three variants, and
-  VehAge x VehBrand has two. Once a variant is accepted, the other variants of the same
-  pair leave the pool.
-- **Rationale for the BonusMalus forms.**
-  - **ASSUMPTION:** the dataset's BonusMalus follows the French statutory scale. The
-    coefficient starts at 1.00 for a new driver (100 here), falls 5% for each
-    claim-free year down to a floor of 0.50 (50 here), and rises with claims (Code des
-    assurances, art. A121-1). The source documentation states only that values below
-    100 are bonus and above 100 are malus.
-  - Under that scale, BonusMalus partly measures driving experience for young drivers,
-    whereas for drivers over 55 any level above 50 points to recent claims. This is the
-    pattern in `reports/figures/ae_heatmap_DrivAge_x_BonusMalus.png`: under-prediction at
-    BonusMalus 51-80 for ages 55+ (A/E up to 1.60), and over-prediction at moderate
-    BonusMalus for ages under 30.
+- **Rejected without a GLM test (owner decision).** The owner reviewed the two-way
+  tables and rejected three pairs without fitting them. Reasons, from
+  `interaction_not_translated.csv`:
+  - **DrivAge x LogDensity.** Mean z² 0.64, with 1 significant cell against 4.4
+    expected.
+  - **DrivAge x Region.** Mean z² 0.79, with 2 significant cells against 6.9 expected.
+  - **DrivAge x VehPower.** Mean z² 1.15, with 5 significant cells against 3.9 expected.
+
+  The two pairs with no interaction in the data, DrivAge x LogDensity and DrivAge x
+  Region, sit at 0.6 to 0.8. That is below the value of 1 a well-specified Poisson
+  model would give. The reason is not established here: the predictions are
+  out-of-fold, so it is not in-sample fitting. DrivAge x VehPower, at 1.15, is close to
+  that noise level. The GBM's interaction strength on all three is not reproduced in the raw
+  data, so they are treated as GBM artefacts. DrivAge x VehPower was tested in the first
+  run as `young_x_highpower` and reached at most 2.1% of the gap.
+
+## D025 Candidate forms and owner-set selection order
+
+- **Order.** Candidates are defined in `src/interactions/candidates.py` (`SELECTION_ORDER`).
+  Each step tests one pair against the current model under D018, and it accepts the best
+  passing form, if any. The order and forms were set by the project owner after
+  reviewing the first run:
+  1. **DrivAge x BonusMalus**, as `young_lbm_senior_malus`. A log(BM/50) slope shift for
+     age under 30, plus a step for age 55+ with BonusMalus above 50.
+  2. **BonusMalus x LogDensity**, as `bm_x_density`. (BM - 50) x (log density - 5): numeric
+     times numeric, centred at the base levels (BonusMalus 50, and the middle of log
+     density band 4.5-5.5). One parameter.
+  3. **B12 x BonusMalus**, in two forms: `b12_x_bm_linear`, B12 x (BM - 50); and
+     `b12_x_bm_3grp`, B12 x BonusMalus groups 51-99 and 100+, with base 50.
+  4. **BonusMalus x Region**, only if step 2 is accepted, and only in a coarse form.
+     `region_bm_slope_2grp` and `region_bm_slope_3grp` group regions by their residual
+     log(BM/50) slope. The grouping is computed inside each CV training set, from the
+     current model plus 17 region slopes, cut into groups of equal exposure, so it never
+     sees the scoring fold.
+  5. **VehAge 0-1 x B12**, as `b12_x_newcar`. Expected to be rejected.
+- **ASSUMPTION (scale logic).** The dataset's BonusMalus follows the French statutory
+  scale. The coefficient starts at 1.00 for a new driver (100 here), falls 5% per
+  claim-free year down to 0.50 (50 here), and rises with claims (Code des assurances,
+  art. A121-1). The source documentation states only that values below 100 are bonus
+  and above 100 are malus. Under that scale, BonusMalus partly measures experience for
+  young drivers, whereas above 50 it signals recent claims for drivers over 55. This is
+  the pattern in `two_way_ae_pivot_glm_a_DrivAge_band_x_BonusMalus_band.csv`. Ages 65-74
+  have A/E of 1.29 to 1.60 at BonusMalus 51-75 but 0.90 at 50. Ages 25-26 have A/E of
+  0.47 to 0.76 at BonusMalus 56-70.
 
 ## D026 Rule 4 ("sensible") made operational
 
@@ -579,68 +605,79 @@ cumulatively.
   five fold fits, and if its interaction multiplier stays within 0.5 to 2.0 between the
   1st and 99th percentile of learn policies. The multiplier is exp of the interaction
   terms only, computed on the full-learn fit.
-- **ASSUMPTION:** the 0.5 to 2.0 range is my own judgement threshold. It is not set by
-  the project owner. It guards against one interaction term doubling or halving a
-  policy's price on top of its main effects.
-- **Where it binds.** It rejected `age_x_lbm_2grp` (99th percentile 2.01) and
-  `age_x_lbm_4grp` (2.19) (`interaction_selection_log.csv`). Both are variants of the
-  pair accepted through `young_lbm_senior_malus`, which improved CV deviance more in the
-  same round: 16.9% of the gap against 11.8% and 12.3% in round 1. The range therefore
-  did not change which pairs entered GLM-B. `region_x_lbm` failed on unstable signs in
-  every round, so its range result was not decisive either.
+- **ASSUMPTION:** the 0.5 to 2.0 range is my own judgement threshold, not one set by the
+  owner. It guards against a single interaction term doubling or halving a policy's
+  price on top of its main effects.
+- **Where it binds.**
+  - In the final, owner-ordered run, it decided nothing. Every candidate rejected there
+    failed rule 2 or rule 3 (`interaction_selection_log.csv`).
+  - In the first run (superseded, see D027), it rejected two age x BonusMalus variants
+    with 99th percentiles of 2.01 and 2.19. Neither was among the forms the owner then
+    specified.
 
-## D027 Forward selection result: two interactions accepted
+## D027 Forward selection result (owner-ordered run): two interactions accepted
 
 All figures are from `reports/tables/interaction_selection_log.csv`,
-`interaction_accepted.csv`, `gap_closed.csv` and `frequency_model_comparison.csv`.
-The GLM-A to GBM CV gap is 0.001578, so the 5% floor is about 0.0000789.
+`interaction_accepted.csv`, `gap_closed.csv` and `frequency_model_comparison.csv`. The
+GLM-A to GBM CV gap is 0.001578, so the 5% floor is about 0.0000789.
 
-**Accepted.**
+| Step | Candidate | Share of gap | Folds improved | Outcome |
+|---|---|---|---|---|
+| 1 | young_lbm_senior_malus | 16.9% | 5 | Accepted. lbm x age<30 +0.989 (se 0.108); age 55+ x BM>50 +0.284 (se 0.035) |
+| 2 | bm_x_density | 3.9% | 5 | Rejected: below the 5% floor. Passes every other rule |
+| 3 | b12_x_bm_3grp | 20.4% | 5 | Accepted. B12 x BM 51-99: -0.377 (se 0.039); B12 x BM 100+: -0.833 (se 0.076) |
+| 3 | b12_x_bm_linear | 18.2% | 5 | Passed. Not taken, because the 3-group form improved more |
+| 4 | region_bm_slope_2grp / 3grp | - | - | Not tested: step 2 not accepted (owner condition) |
+| 5 | b12_x_newcar | 2.3% | 3 | Rejected: only 3 of 5 folds, and below the floor |
 
-1. **`b12_x_lbm`, round 1.** A log(BM/50) slope shift for brand B12, 1 parameter.
-   Coefficient -0.979 (se 0.077).
-   - Improvement 0.000313 against a paired sd of 0.000147. Better in 5 of 5 folds. LRT
-     p = 5.4e-40. 19.9% of the gap.
-   - The BonusMalus effect is much flatter for B12. Brand labels are anonymised, so the
-     cause cannot be checked. One plausible reading is that B12 vehicles are more often
-     driven by someone other than the BonusMalus holder. This is flagged for review
-     because it rests on an unexplained brand.
-2. **`young_lbm_senior_malus`, round 2.** Two parameters:
-   - A log(BM/50) slope shift for age under 30: +0.940 (se 0.108).
-   - A step for age 55+ with BonusMalus above 50: +0.292 (se 0.035), a multiplier of 1.34.
-   - Improvement 0.000257 against a paired sd of 0.000158. Better in 5 of 5 folds. 16.3%
-     of the gap.
-   - The sign and size match the scale logic in D025.
-
-**Rejected** (last round evaluated).
-
-- **`density_x_lbm`.** It passed in round 1 at 5.3% of the gap, but fell to 3.2% once
-  `b12_x_lbm` was in, below the floor.
-- **`region_x_lbm`.** 17 parameters. It gave the largest raw improvement, 23.4% of the
-  gap in round 1, but its signs are unstable across folds in every round.
-- **`b12_x_newcar` and `b12_x_vehage_grp`.** Better in only 3 of 5 folds in the final
-  round, and below the floor.
-- **`young_x_highpower`.** Better in all folds but only 1.8% to 2.1% of the gap. It would
-  have cleared the original 2% floor in rounds 2 and 3, so the owner's change to 5%
-  decided this rejection.
-- **Stopping.** Round 3 ended with no candidate passing, so the cap of 5 did not bind.
+Coefficients are from the full-learn fit at the step where each candidate was tested.
+The final GLM-B values are in `glm_b_coefficients.csv`.
 
 **Result.**
 
 | Model | Parameters | CV deviance (sd) | Holdout deviance | Holdout Gini |
 |---|---|---|---|---|
 | GLM-A | 72 | 0.239260 (0.003246) | 0.242651 | 0.294 |
-| GLM-B | 75 | 0.238690 (0.003024) | 0.242119 | 0.300 |
+| GLM-B | 76 | 0.238672 (0.003029) | 0.242117 | 0.299 |
 | GBM | 565 trees | 0.237682 (0.003109) | 0.240744 | 0.316 |
 
-Gap closed: 36.1% on CV and 27.9% on holdout.
+Gap closed: 37.3% on CV and 28.0% on holdout. The cap of 5 did not bind.
 
-**Residual check.** On GLM-B out-of-fold predictions (`two_way_ae_summary_glm_b.csv`),
-mean z² falls:
-- from 2.79 to 0.91 for BonusMalus x VehBrand, which is now at noise level;
-- from 4.41 to 2.55 for DrivAge x BonusMalus;
-- from 3.01 to 2.26 for BonusMalus x Region.
+**Does the BonusMalus x Region signal survive once density is in?**
+(`region_bm_signal_by_step.csv`, mean z² of the BonusMalus x Region two-way table on
+out-of-fold predictions)
 
-BonusMalus x Region is the largest pattern left. No parsimonious, explainable form was
-found, and a post-hoc single-region term was deliberately not fitted, to avoid tuning
-the model to the data.
+- GLM-A: 3.01
+- After the age x BonusMalus term: 2.97
+- After the B12 term: 2.22
+- With density added as a diagnostic only, since it was not accepted: 2.04, with 19
+  significant cells against 6.2 expected
+
+The signal survives density. Part of it was B12 x BonusMalus, because brand mix differs
+by region. Density does not explain the rest. It stays the largest unexplained pattern,
+but the owner's condition for testing it (density accepted first) was not met.
+
+**Superseded first run.** A best-improvement-first selection over 9 candidates accepted
+`b12_x_lbm` and then `young_lbm_senior_malus`, closing 36.1% of the CV gap. It was
+replaced by the owner-ordered run above. The code now implements only the ordered run.
+
+## D028 B12 interaction under free exposure (check of the short-exposure hypothesis)
+
+- **Test.** Refit GLM-B's structure with log(exposure) as a free covariate instead of
+  the offset, and compare the interaction coefficients
+  (`reports/tables/interaction_exposure_check.csv`).
+- **Evidence.** The free fit puts the log(exposure) coefficient at 0.647.
+  - B12 x BM 51-99 moves from -0.377 to -0.334, a ratio of 0.887.
+  - B12 x BM 100+ moves from -0.833 to -0.735, a ratio of 0.883.
+  - B12 policies are shorter, with mean exposure 0.39 against 0.57, and 40.2% under
+    0.25 years against 29.1%. They are also much newer: 46.3% of B12 vehicles are aged
+    0-1, against 9.9% for other brands (`b12_profile.csv`).
+- **ASSUMPTION:** "shrinks materially" means a coefficient ratio below 0.75. This is my
+  own threshold.
+- **Finding.** The B12 effect shrinks by about 12% under free exposure. Short exposure
+  explains a small part of it, but not most. The short-exposure hypothesis is therefore
+  not supported as the main driver. The B12 profile (newer cars, shorter policies) fits
+  a fleet, lease or new-car channel, but brand labels are anonymised and this is not
+  verifiable.
+- **Other interaction.** The age terms change by factors of 0.93 and 1.06, so they are
+  not exposure artefacts either.
