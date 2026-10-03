@@ -1,0 +1,9 @@
+model,factor_1,factor_2,cells,cells_abs_z_gt_1_96,expected_by_chance,mean_z_squared
+GLM-A,DrivAge_band,BonusMalus_band,88,33,4.4,4.4120331463535924
+GLM-A,BonusMalus_band,VehBrand_grp,91,16,4.55,2.7897124613467916
+GLM-A,BonusMalus_band,Region_grp,125,25,6.25,3.01163459175939
+GLM-A,BonusMalus_band,LogDensity_band,90,14,4.5,1.7381202433635485
+GLM-A,DrivAge_band,LogDensity_band,87,1,4.3500000000000005,0.6385054586395265
+GLM-A,VehAge_band,VehBrand_grp,83,11,4.15,1.4069658015907915
+GLM-A,DrivAge_band,VehPower_band,78,5,3.9000000000000004,1.150657757730201
+GLM-A,DrivAge_band,Region_grp,137,2,6.8500000000000005,0.7908330950066982

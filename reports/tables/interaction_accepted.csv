@@ -1,0 +1,3 @@
+step,accepted,pair,improvement_mean,share_of_gap,cv_deviance_after,cumulative_share_of_gap
+1,b12_x_lbm,BonusMalus x VehBrand,0.00031333438639334356,0.19858533553111693,0.23894680800540313,0.19858533553110988
+2,young_lbm_senior_malus,DrivAge x BonusMalus,0.00025695134405793183,0.16285084271235883,0.2386898566613452,0.36143617824346524

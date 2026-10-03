@@ -503,3 +503,144 @@ cumulatively.
   into the young-driver and high-BonusMalus relativities. Stage 6 measures this by
   refitting GLM-B with log(exposure) as a control variable and comparing the
   relativities.
+
+---
+
+## Stage 4: SHAP interactions and GLM revision
+
+## D023 SHAP subsample: 20,000 learn policies
+
+- **Decision.** Apply the D007 rule with the tuned model's 565 trees. The expected cost of
+  499 s for 20,000 rows is under the 900 s budget, so the size is the cap of 20,000.
+  Rows are stratified by claim indicator from the learn set; the holdout is not used.
+- **Evidence.** `reports/tables/shap_run.csv`: 20,000 rows, claim share 0.0367, 194 s
+  actual, and max additivity error 2.0e-14. The run beat its estimate because the tuned
+  trees have 15 leaves against 31 in the benchmark, and the rule scales by tree count
+  only, which errs on the safe side.
+- **Trade-off.** Mean absolute interaction values are averages over 20,000 rows, and the
+  top pairs are separated by clear margins (`shap_interaction_ranking.csv`). The
+  Friedman H cross-check uses 1,000 rows, because its cost grows with the square of
+  the sample size.
+
+## D024 Which SHAP pairs were taken forward
+
+- **Ranking.** In `reports/tables/shap_interaction_ranking.csv`, the top 8 pairs by mean
+  |SHAP interaction| are:
+  1. DrivAge x BonusMalus, 0.075
+  2. BonusMalus x VehBrand, 0.047
+  3. BonusMalus x Region, 0.046
+  4. BonusMalus x LogDensity, 0.036
+  5. DrivAge x LogDensity, 0.022
+  6. VehAge x VehBrand, 0.022
+  7. DrivAge x VehPower, 0.016
+  8. DrivAge x Region, 0.016
+- **H-statistic.** Friedman's H² agrees on the leader (DrivAge x BonusMalus, 0.047). It
+  ranks VehAge x VehBrand second (0.045), against sixth by SHAP. The two measures weigh
+  interaction strength differently, so each pair is confirmed against the data rather
+  than chosen by either ranking alone.
+- **Confirmation.** Each pair gets a two-way table of observed claims against GLM-A
+  out-of-fold predictions on the learn set, and the mean z² is taken over cells with at
+  least 200 policy-years. From `two_way_ae_summary_glm_a.csv`:
+  - DrivAge x BonusMalus: 4.41
+  - BonusMalus x Region: 3.01
+  - BonusMalus x VehBrand: 2.79
+  - BonusMalus x LogDensity: 1.74
+  - VehAge x VehBrand: 1.41
+  - DrivAge x VehPower: 1.15
+  - DrivAge x Region: 0.79
+  - DrivAge x LogDensity: 0.64
+- **Decision.** DrivAge x LogDensity and DrivAge x Region show no excess over noise in the
+  raw data (mean z² below 1) and are treated as GBM artefacts, with no candidate built.
+  The other six pairs get candidates.
+
+## D025 Candidate forms (GLM-implementable)
+
+- **Decision.** Candidates are defined in `src/interactions/candidates.py`. BonusMalus
+  interactions are written as slope shifts on lbm = log(BonusMalus / 50), which is 0 at
+  the floor of 50. That adds 1 or 2 parameters on top of the banded BonusMalus factor,
+  instead of an 11-band x k-level table. DrivAge x BonusMalus has three variants, and
+  VehAge x VehBrand has two. Once a variant is accepted, the other variants of the same
+  pair leave the pool.
+- **Rationale for the BonusMalus forms.**
+  - **ASSUMPTION:** the dataset's BonusMalus follows the French statutory scale. The
+    coefficient starts at 1.00 for a new driver (100 here), falls 5% for each
+    claim-free year down to a floor of 0.50 (50 here), and rises with claims (Code des
+    assurances, art. A121-1). The source documentation states only that values below
+    100 are bonus and above 100 are malus.
+  - Under that scale, BonusMalus partly measures driving experience for young drivers,
+    whereas for drivers over 55 any level above 50 points to recent claims. This is the
+    pattern in `reports/figures/ae_heatmap_DrivAge_x_BonusMalus.png`: under-prediction at
+    BonusMalus 51-80 for ages 55+ (A/E up to 1.60), and over-prediction at moderate
+    BonusMalus for ages under 30.
+
+## D026 Rule 4 ("sensible") made operational
+
+- **Decision.** A candidate passes rule 4 if its coefficient signs are the same in all
+  five fold fits, and if its interaction multiplier stays within 0.5 to 2.0 between the
+  1st and 99th percentile of learn policies. The multiplier is exp of the interaction
+  terms only, computed on the full-learn fit.
+- **ASSUMPTION:** the 0.5 to 2.0 range is my own judgement threshold. It is not set by
+  the project owner. It guards against one interaction term doubling or halving a
+  policy's price on top of its main effects.
+- **Where it binds.** It rejected `age_x_lbm_2grp` (99th percentile 2.01) and
+  `age_x_lbm_4grp` (2.19) (`interaction_selection_log.csv`). Both are variants of the
+  pair accepted through `young_lbm_senior_malus`, which improved CV deviance more in the
+  same round: 16.9% of the gap against 11.8% and 12.3% in round 1. The range therefore
+  did not change which pairs entered GLM-B. `region_x_lbm` failed on unstable signs in
+  every round, so its range result was not decisive either.
+
+## D027 Forward selection result: two interactions accepted
+
+All figures are from `reports/tables/interaction_selection_log.csv`,
+`interaction_accepted.csv`, `gap_closed.csv` and `frequency_model_comparison.csv`.
+The GLM-A to GBM CV gap is 0.001578, so the 5% floor is about 0.0000789.
+
+**Accepted.**
+
+1. **`b12_x_lbm`, round 1.** A log(BM/50) slope shift for brand B12, 1 parameter.
+   Coefficient -0.979 (se 0.077).
+   - Improvement 0.000313 against a paired sd of 0.000147. Better in 5 of 5 folds. LRT
+     p = 5.4e-40. 19.9% of the gap.
+   - The BonusMalus effect is much flatter for B12. Brand labels are anonymised, so the
+     cause cannot be checked. One plausible reading is that B12 vehicles are more often
+     driven by someone other than the BonusMalus holder. This is flagged for review
+     because it rests on an unexplained brand.
+2. **`young_lbm_senior_malus`, round 2.** Two parameters:
+   - A log(BM/50) slope shift for age under 30: +0.940 (se 0.108).
+   - A step for age 55+ with BonusMalus above 50: +0.292 (se 0.035), a multiplier of 1.34.
+   - Improvement 0.000257 against a paired sd of 0.000158. Better in 5 of 5 folds. 16.3%
+     of the gap.
+   - The sign and size match the scale logic in D025.
+
+**Rejected** (last round evaluated).
+
+- **`density_x_lbm`.** It passed in round 1 at 5.3% of the gap, but fell to 3.2% once
+  `b12_x_lbm` was in, below the floor.
+- **`region_x_lbm`.** 17 parameters. It gave the largest raw improvement, 23.4% of the
+  gap in round 1, but its signs are unstable across folds in every round.
+- **`b12_x_newcar` and `b12_x_vehage_grp`.** Better in only 3 of 5 folds in the final
+  round, and below the floor.
+- **`young_x_highpower`.** Better in all folds but only 1.8% to 2.1% of the gap. It would
+  have cleared the original 2% floor in rounds 2 and 3, so the owner's change to 5%
+  decided this rejection.
+- **Stopping.** Round 3 ended with no candidate passing, so the cap of 5 did not bind.
+
+**Result.**
+
+| Model | Parameters | CV deviance (sd) | Holdout deviance | Holdout Gini |
+|---|---|---|---|---|
+| GLM-A | 72 | 0.239260 (0.003246) | 0.242651 | 0.294 |
+| GLM-B | 75 | 0.238690 (0.003024) | 0.242119 | 0.300 |
+| GBM | 565 trees | 0.237682 (0.003109) | 0.240744 | 0.316 |
+
+Gap closed: 36.1% on CV and 27.9% on holdout.
+
+**Residual check.** On GLM-B out-of-fold predictions (`two_way_ae_summary_glm_b.csv`),
+mean z² falls:
+- from 2.79 to 0.91 for BonusMalus x VehBrand, which is now at noise level;
+- from 4.41 to 2.55 for DrivAge x BonusMalus;
+- from 3.01 to 2.26 for BonusMalus x Region.
+
+BonusMalus x Region is the largest pattern left. No parsimonious, explainable form was
+found, and a post-hoc single-region term was deliberately not fitted, to avoid tuning
+the model to the data.

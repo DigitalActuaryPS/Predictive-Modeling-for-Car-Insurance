@@ -29,6 +29,8 @@ shap:
   # model's tree count (TreeSHAP interaction cost is linear in rows and in trees).
   sample_size_max: 20000
   runtime_budget_seconds: 900
+  top_pairs: 8                 # pairs taken forward to dependence plots / A/E heatmaps
+  h_stat_sample: 1000          # rows for Friedman's H cross-check (cost grows with the square)
 
 cleaning:
   exposure_cap: 1.0          # policy-years; see DECISIONS D008

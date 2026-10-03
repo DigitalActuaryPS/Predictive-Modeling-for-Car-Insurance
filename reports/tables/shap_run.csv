@@ -1,0 +1,2 @@
+rows,claim_share,n_trees,expected_seconds,actual_seconds,max_additivity_error
+20000,0.0367,565,499.24575070426425,193.84179106100004,1.9872992140790302e-14
