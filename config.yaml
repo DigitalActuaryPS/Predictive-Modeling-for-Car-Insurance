@@ -89,3 +89,9 @@ gbm:
     min_data_in_leaf: [200, 500, 1000, 2000]
     feature_fraction: [0.6, 0.8, 1.0]
     lambda_l2: [0.0, 1.0, 10.0]
+
+impact:
+  change_bands: [-1.0, -0.20, -0.10, -0.05, 0.05, 0.10, 0.20, 10.0]
+  cap: 0.15                       # illustrative +/-15% cap / collar on year-one movement
+  segment_min_exposure: 1000      # policy-years for a two-factor segment to count as material
+  top_segments: 10

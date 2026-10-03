@@ -21,7 +21,13 @@ from src.models import gbm as G
 from src.models.severity import add_severity_features
 
 Z = 1.959963984540054
-SEV_MAP = {"BonusMalus_band": ("BonusMalus_sev3", lambda lvl: "50" if lvl == "50" else ("100+" if lvl in ("100-110", "111+") else "51-99"))}
+def _sev3(lvl: str) -> str:
+    """Severity group of a (possibly merged) BonusMalus band label, by its lower bound."""
+    lo = int(lvl.split("-")[0].rstrip("+"))
+    return "50" if lo == 50 else ("100+" if lo >= 100 else "51-99")
+
+
+SEV_MAP = {"BonusMalus_band": ("BonusMalus_sev3", _sev3), "BonusMalus_bandB": ("BonusMalus_sev3", _sev3)}
 
 
 def load_models(cfg):
@@ -89,7 +95,7 @@ def factor_table(f: str, learn: pd.DataFrame, freq, sev, base_level, rate: np.nd
 def interaction_tables(freq, learn: pd.DataFrame, accepted: list) -> dict:
     """Evaluate each accepted interaction's multiplier (with delta-method 95% CI) on a grid
     of representative policies. BonusMalus at each band's learn exposure-weighted mean."""
-    rep_bm = (learn.groupby("BonusMalus_band", observed=True)
+    rep_bm = (learn.groupby("BonusMalus_bandB", observed=True)
               .apply(lambda d: np.average(d["BonusMalus"], weights=d["Exposure"]), include_groups=False).round().astype(int))
     cov = freq.cov_unscaled * freq.scale
     out = {}
@@ -187,7 +193,8 @@ def run() -> dict:
     tables, figures, processed = (cfg["paths"][k] for k in ("tables", "figures", "processed"))
     pol = add_severity_features(pd.read_parquet(processed / "policies_banded.parquet"))
     learn, hold = pol[~pol["holdout"]], pol[pol["holdout"]]
-    base = pd.read_csv(tables / "base_levels.csv").set_index("factor")["base_level"].to_dict()
+    base = pd.read_csv(tables / "base_levels.csv", dtype=str).set_index("factor")["base_level"].to_dict()
+    base.update(pd.read_csv(tables / "base_levels_glm_b.csv", dtype=str).set_index("factor")["base_level"].to_dict())
     s3, b, sv = load_models(cfg)
     glm_a, glm_b, accepted, sev, load = s3["glm_a"], b["glm_b"], b["accepted"], sv["severity"], sv["load"]
 
@@ -198,10 +205,12 @@ def run() -> dict:
     gbm_raw = lambda d: gbm_freq(d) * sev.predict(d) * (1 + load)  # noqa: E731
     gbm_rebase = float(learn["ClaimAmount"].sum() / (learn["Exposure"] * gbm_raw(learn)).sum())
 
-    # Relativity tables
+    # Relativity tables (remove stale files from earlier factor structures first)
+    for old in tables.glob("relativities_*.csv"):
+        old.unlink()
     md_tables, all_rel = [], []
     rate_learn = tb.rate(learn)
-    for f in cfg["glm"]["factors"]:
+    for f in b["factors"]:
         t = factor_table(f, learn, glm_b, sev, base[f], rate_learn)
         t.to_csv(tables / f"relativities_{f}.csv", index=False)
         all_rel.append(t)

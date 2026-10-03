@@ -54,7 +54,8 @@ def run() -> dict:
     learn = pol[~pol["holdout"]].copy()
     learn["LogExposure"] = np.log(learn["Exposure"])
     learn["LogBM100"] = np.log(learn["BonusMalus"] / 100.0)
-    base = pd.read_csv(tables / "base_levels.csv").set_index("factor")["base_level"].to_dict()
+    base = pd.read_csv(tables / "base_levels.csv", dtype=str).set_index("factor")["base_level"].to_dict()
+    base.update(pd.read_csv(tables / "base_levels_glm_b.csv", dtype=str).set_index("factor")["base_level"].to_dict())
     with open(processed / "models" / "frequency_glm_b.pkl", "rb") as fh:
         b = pickle.load(fh)
     with open(processed / "models" / "frequency_stage3.pkl", "rb") as fh:
@@ -67,7 +68,7 @@ def run() -> dict:
     out = {}
 
     # 1. Exposure control
-    free = fit_glm(make_terms(cfg, base, accepted)() + [NumericTerm("LogExposure")], learn, y, "poisson")
+    free = fit_glm(make_terms(cfg, base, accepted, b["factors"])() + [NumericTerm("LogExposure")], learn, y, "poisson")
     comp = rel_compare(glm_b, free, "offset", "exposure_control")
     comp.to_csv(tables / "tariff_exposure_control_relativities.csv", index=False)
     sev_l = sv["severity"].predict(learn.assign(BonusMalus_sev3=pd.Categorical(
@@ -77,7 +78,7 @@ def run() -> dict:
     r_free *= (learn["Exposure"] * r_off).sum() / (learn["Exposure"] * r_free).sum()  # same learn total
     ratio = pd.Series(r_free / r_off, index=learn.index)
     by = []
-    for f in ("DrivAge_band", "BonusMalus_band"):
+    for f in ("DrivAge_band", "BonusMalus_bandB"):
         g = learn.assign(w=learn["Exposure"], wr=learn["Exposure"] * ratio).groupby(f, observed=True)[["w", "wr"]].sum()
         by.append(pd.DataFrame({"factor": f, "level": g.index.astype(str), "mean_premium_ratio_control_over_offset": g["wr"] / g["w"]}))
     pd.concat(by).to_csv(tables / "tariff_exposure_control_premium_ratio.csv", index=False)
@@ -159,9 +160,10 @@ def write_note(cfg) -> str:
         f"{100 * top.share_of_glm_a_vs_intercept_cv_gain:.0f}% of GLM-A's whole CV gain over an intercept-only model "
         f"(`glm_a_factor_importance.csv`). It is not an independent risk characteristic: it is the insurer's record of past "
         f"claims, so it partly double-counts the claims the model is predicting and depends on the bonus-malus rules in force "
-        f"(endogeneity). Fitted freely, frequency rises with BonusMalus at a power of {fr.coef_log_bm100:.2f} "
-        f"(95% CI {fr.ci_lower_95:.2f} to {fr.ci_upper_95:.2f}) against 1 for a premium that moves one-for-one with the "
-        f"statutory coefficient; the observed claims gradient is {'steeper' if fr.coef_log_bm100 > 1 else 'flatter'} than the scale. "
+        f"(endogeneity). In a GLM with the other factors, claim frequency is associated with BonusMalus at a power of "
+        f"{fr.coef_log_bm100:.2f} (95% CI {fr.ci_lower_95:.2f} to {fr.ci_upper_95:.2f}), against 1 if it moved one-for-one "
+        f"with the statutory coefficient. This is an association, not evidence that the scale is mispriced: BonusMalus is "
+        f"entangled with driving experience, because young drivers start high and move down with experience as well as claims. "
         f"Imposing the scale as an offset (no fitted BonusMalus terms) moves {int(cmp_crm.flag_move_gt_5pct.sum())} of "
         f"{len(cmp_crm)} other relativities by more than 5%, most of all young-driver relativities, which BonusMalus otherwise "
         f"partly absorbs (`bm_crm_offset_relativities.csv`). Under the statutory scale (ASSUMPTION: Code des assurances art. "

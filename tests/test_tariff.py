@@ -27,3 +27,9 @@ def test_policy_premiums_rebased(cfg):
     actual = learn["ClaimAmount"].sum()
     for c in ("rate_current", "rate_proposed", "rate_gbm"):
         assert abs((learn["Exposure"] * learn[c]).sum() / actual - 1) < 0.001, c
+
+
+def test_effective_bonusmalus_relativities_never_decrease(cfg):
+    # Customer-facing NCD must not reverse (DECISIONS D039)
+    t = pd.read_csv(cfg["paths"]["tables"] / "relativities_BonusMalus_bandB.csv")
+    assert (np.diff(t["effective_relativity"].to_numpy()) >= -1e-9).all()

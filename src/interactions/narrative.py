@@ -48,7 +48,8 @@ def write() -> str:
         "",
         f"SHAP interaction values for the tuned GBM, on {int(run.rows):,} learn policies stratified by claim indicator, "
         f"rank highest: {pairs}. {n_bm_age} of the {len(rank)} involve BonusMalus or driver age. "
-        f"Friedman's H-statistic puts {h_lead.feature_1} x {h_lead.feature_2} first as well. "
+        + ("Friedman H agrees on the leader. " if (h_lead.feature_1, h_lead.feature_2) == (rank.iloc[0].feature_1, rank.iloc[0].feature_2)
+           else f"Friedman H puts {h_lead.feature_1} x {h_lead.feature_2} first. ") +
         "Under French bonus-malus rules the coefficient starts at 1.00 (100 here) and falls 5% a year without claims "
         "(Code des assurances, art. A121-1), so one BonusMalus level means a novice at 25 but a recent claimant at 65.",
         "",
@@ -111,7 +112,8 @@ def write() -> str:
         "",
         f"GLM-B closes {pct(gap.cv_gap_closed_by_glm_b)} of the CV deviance gap between GLM-A and the GBM "
         f"({pct(gap.holdout_gap_closed_by_glm_b)} on holdout) with "
-        f"{int(comp.loc['GLM-B (proposed tariff)', 'n_params'] - comp.loc['GLM-A (current tariff)', 'n_params'])} extra parameters. "
+        f"{int(sum(log[(log.step == r.step) & (log.candidate == r.accepted)].iloc[0].n_params for r in acc.itertuples()))} "
+        "interaction parameters, after merging BonusMalus 61-80 (D039). "
         f"Holdout Gini: GLM-A {comp.loc['GLM-A (current tariff)', 'holdout_gini']:.3f}, "
         f"GLM-B {comp.loc['GLM-B (proposed tariff)', 'holdout_gini']:.3f}, GBM {comp.loc['GBM (LightGBM Poisson)', 'holdout_gini']:.3f}."
         + region_text,

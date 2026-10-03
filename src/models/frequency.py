@@ -17,7 +17,7 @@ from src.models.glm import FactorTerm, NumericTerm, cv_frequency, fit_glm
 
 def load(cfg):
     p = pd.read_parquet(cfg["paths"]["processed"] / "policies_banded.parquet")
-    base = pd.read_csv(cfg["paths"]["tables"] / "base_levels.csv").set_index("factor")["base_level"].to_dict()
+    base = pd.read_csv(cfg["paths"]["tables"] / "base_levels.csv", dtype=str).set_index("factor")["base_level"].to_dict()
     return p[~p["holdout"]].copy(), p[p["holdout"]].copy(), base
 
 

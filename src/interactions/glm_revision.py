@@ -28,18 +28,74 @@ def candidate_info(name):
     return REGION_GROUP_CANDIDATES[name][0], REGION_GROUP_CANDIDATES[name][2]
 
 
-def make_term(name, cfg, base, accepted_before):
+def make_term(name, cfg, base, accepted_before, factors=None):
     if name in CANDIDATES:
         return InteractionTerm(name, CANDIDATES[name][1])
     k = REGION_GROUP_CANDIDATES[name][1]
-    return RegionSlopeGroupTerm(k, cfg["glm"]["factors"], base, list(accepted_before))
+    return RegionSlopeGroupTerm(k, factors or cfg["glm"]["factors"], base, list(accepted_before))
 
 
-def make_terms(cfg, base, accepted: list[str]):
+def make_terms(cfg, base, accepted: list[str], factors: list | None = None):
+    """factors defaults to the configured GLM factors; GLM-B passes its own list when its
+    BonusMalus bands were merged for monotonicity (D039)."""
+    factors = factors or cfg["glm"]["factors"]
+
     def make():
-        ts = [FactorTerm(f, base[f]) for f in cfg["glm"]["factors"]]
-        return ts + [make_term(name, cfg, base, accepted[:i]) for i, name in enumerate(accepted)]
+        ts = [FactorTerm(f, base[f]) for f in factors]
+        return ts + [make_term(name, cfg, base, accepted[:i], factors) for i, name in enumerate(accepted)]
     return make
+
+
+BM_BAND_B = "BonusMalus_bandB"
+
+
+def effective_bm(fit, df, col) -> pd.Series:
+    """Exposure-weighted mean predicted frequency per BonusMalus band, relative to the base
+    band (interactions and correlated factors included)."""
+    f = fit.predict(df)
+    g = df.assign(_w=df["Exposure"], _wf=df["Exposure"] * f).groupby(col, observed=True)[["_w", "_wf"]].sum()
+    m = g["_wf"] / g["_w"]
+    return m / m.iloc[0]
+
+
+def make_bm_monotone(cfg, base, accepted, learn, cv_start, fit_start, n_folds, tables):
+    """D039: while the effective BonusMalus relativities of GLM-B decrease anywhere, merge
+    the first reversing pair of adjacent bands and refit (same interactions). Returns the
+    final fit, its CV, the factor list and the band mapping."""
+    factors = list(cfg["glm"]["factors"])
+    cats = [str(c) for c in learn["BonusMalus_band"].cat.categories]
+    mapping = {c: c for c in cats}
+    fit, cv, rows = fit_start, cv_start, []
+    col = "BonusMalus_band"
+    while True:
+        eff = effective_bm(fit, learn, col)
+        rows.append({"bands": " | ".join(eff.index.astype(str)), "effective": " | ".join(f"{v:.3f}" for v in eff),
+                     "cv_deviance_mean": cv["mean"], "cv_deviance_sd": cv["sd"], "n_params": fit.n_params,
+                     "monotone": bool((np.diff(eff.to_numpy()) >= 0).all())})
+        rev = np.flatnonzero(np.diff(eff.to_numpy()) < 0)
+        if not len(rev):
+            break
+        lo, hi = str(eff.index[rev[0]]), str(eff.index[rev[0] + 1])
+        merged = f"{lo.split('-')[0]}-{hi.split('-')[-1].rstrip('+')}" + ("+" if hi.endswith("+") else "")
+        rows[-1]["merge_next"] = f"{lo} + {hi} -> {merged}"
+        mapping = {k: (merged if v in (lo, hi) else v) for k, v in mapping.items()}
+        order = list(dict.fromkeys(mapping[c] for c in cats))
+        learn[BM_BAND_B] = pd.Categorical(learn["BonusMalus_band"].astype(str).map(mapping), categories=order, ordered=True)
+        col = BM_BAND_B
+        factors = [BM_BAND_B if f == "BonusMalus_band" else f for f in cfg["glm"]["factors"]]
+        base = {**base, BM_BAND_B: mapping[str(base["BonusMalus_band"])]}
+        make = make_terms(cfg, base, accepted, factors)
+        cv = cv_frequency(make, learn, n_folds)
+        fit = fit_glm(make(), learn, learn["ClaimNb"].to_numpy(), "poisson", np.log(learn["Exposure"].to_numpy()))
+    pd.DataFrame(rows).to_csv(tables / "bm_monotonicity_steps.csv", index=False)
+    if col == "BonusMalus_band":  # already monotone: keep the original bands under the GLM-B name
+        mapping = {c: c for c in cats}
+        factors = [BM_BAND_B if f == "BonusMalus_band" else f for f in cfg["glm"]["factors"]]
+        base = {**base, BM_BAND_B: str(base["BonusMalus_band"])}
+        learn[BM_BAND_B] = pd.Categorical(learn["BonusMalus_band"].astype(str), categories=cats, ordered=True)
+        make = make_terms(cfg, base, accepted, factors)
+        fit = fit_glm(make(), learn, learn["ClaimNb"].to_numpy(), "poisson", np.log(learn["Exposure"].to_numpy()))
+    return fit, cv, factors, mapping, base
 
 
 def interaction_multiplier(fit, df, name) -> np.ndarray:
@@ -123,10 +179,10 @@ def pivot_tables(ae: pd.DataFrame, model: str, min_exposure: float, tables, orde
         piv.round(3).to_csv(tables / f"two_way_ae_pivot_{model}_{a}_x_{b}.csv")
 
 
-def exposure_check(glm_b, accepted, cfg, base, learn) -> pd.DataFrame:
+def exposure_check(glm_b, accepted, cfg, base, learn, factors=None) -> pd.DataFrame:
     """Refit GLM-B's structure with log(exposure) as a free covariate (no offset) and
     compare each interaction coefficient with the offset fit."""
-    terms = make_terms(cfg, base, accepted)() + [NumericTerm("LogExposure")]
+    terms = make_terms(cfg, base, accepted, factors)() + [NumericTerm("LogExposure")]
     free = fit_glm(terms, learn.assign(LogExposure=np.log(learn["Exposure"])), learn["ClaimNb"].to_numpy(), "poisson")
     rows = []
     for n in glm_b.names:
@@ -147,7 +203,7 @@ def run() -> dict:
         s3 = pickle.load(fh)
     p = pd.read_parquet(processed / "policies_banded.parquet")
     learn, hold = p[~p["holdout"]].copy(), p[p["holdout"]].copy()
-    base = pd.read_csv(tables / "base_levels.csv").set_index("factor")["base_level"].to_dict()
+    base = pd.read_csv(tables / "base_levels.csv", dtype=str).set_index("factor")["base_level"].to_dict()
     n_folds = cfg["split"]["n_folds"]
 
     cv_a, cv_g = s3["cv"]["glm_a"], s3["cv"]["gbm"]
@@ -217,8 +273,14 @@ def run() -> dict:
                    "reason": "no excess over Poisson noise in the raw two-way A/E against GLM-A; rejected without a GLM test"})
     pd.DataFrame(nt).to_csv(tables / "interaction_not_translated.csv", index=False)
 
-    # GLM-B
-    glm_b, cv_b = current_full, current_cv
+    # GLM-B: BonusMalus made monotone in effective terms (D039)
+    glm_b, cv_b, factors_b, bm_mapping, base = make_bm_monotone(cfg, base, accepted, learn, current_cv, current_full,
+                                                               n_folds, tables)
+    order = list(dict.fromkeys(bm_mapping[str(c)] for c in p["BonusMalus_band"].cat.categories))
+    p[BM_BAND_B] = pd.Categorical(p["BonusMalus_band"].astype(str).map(bm_mapping), categories=order, ordered=True)
+    p.to_parquet(processed / "policies_banded.parquet", index=False)
+    learn, hold = p[~p["holdout"]].copy(), p[p["holdout"]].copy()
+    pd.DataFrame([{"factor": BM_BAND_B, "base_level": base[BM_BAND_B]}]).to_csv(tables / "base_levels_glm_b.csv", index=False)
     glm_b.table().to_csv(tables / "glm_b_coefficients.csv", index=False)
     y, e = hold["ClaimNb"].to_numpy(), hold["Exposure"].to_numpy()
     f_a = s3["glm_a"].predict(hold)
@@ -284,7 +346,7 @@ def run() -> dict:
     pivot_tables(pd.read_csv(tables / "two_way_ae_top_pairs.csv"), "glm_a", min_cell, tables, order)
 
     # Does the B12 (and every other accepted) interaction survive with exposure as a free covariate?
-    exposure_check(glm_b, accepted, cfg, base, learn).to_csv(tables / "interaction_exposure_check.csv", index=False)
+    exposure_check(glm_b, accepted, cfg, base, learn, factors_b).to_csv(tables / "interaction_exposure_check.csv", index=False)
     short = learn["Exposure"] < 0.25
     b12 = learn["VehBrand_grp"].astype(str) == "B12"
     pd.DataFrame([{"group": g, "policies": int(m.sum()), "mean_exposure": learn.loc[m, "Exposure"].mean(),
@@ -294,7 +356,8 @@ def run() -> dict:
                   for g, m in (("B12", b12), ("other brands", ~b12))]).to_csv(tables / "b12_profile.csv", index=False)
 
     with open(processed / "models" / "frequency_glm_b.pkl", "wb") as fh:
-        pickle.dump({"glm_b": glm_b, "accepted": accepted, "cv_glm_b": cv_b}, fh)
+        pickle.dump({"glm_b": glm_b, "accepted": accepted, "cv_glm_b": cv_b, "factors": factors_b,
+                     "bm_mapping": bm_mapping, "cv_glm_b_before_monotone": current_cv}, fh)
     return {"accepted": accepted, "comparison": comp}
 
 

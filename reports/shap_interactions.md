@@ -4,7 +4,7 @@
 
 ## What the GBM found
 
-SHAP interaction values for the tuned GBM, on 20,000 learn policies stratified by claim indicator, rank highest: DrivAge x BonusMalus, BonusMalus x VehBrand, BonusMalus x Region, BonusMalus x LogDensity, DrivAge x LogDensity, VehAge x VehBrand, DrivAge x VehPower, DrivAge x Region. 7 of the 8 involve BonusMalus or driver age. Friedman's H-statistic puts DrivAge x BonusMalus first as well. Under French bonus-malus rules the coefficient starts at 1.00 (100 here) and falls 5% a year without claims (Code des assurances, art. A121-1), so one BonusMalus level means a novice at 25 but a recent claimant at 65.
+SHAP interaction values for the tuned GBM, on 20,000 learn policies stratified by claim indicator, rank highest: DrivAge x BonusMalus, BonusMalus x VehBrand, BonusMalus x Region, BonusMalus x LogDensity, DrivAge x LogDensity, VehAge x VehBrand, DrivAge x VehPower, DrivAge x Region. 7 of the 8 involve BonusMalus or driver age. Friedman H agrees on the leader. Under French bonus-malus rules the coefficient starts at 1.00 (100 here) and falls 5% a year without claims (Code des assurances, art. A121-1), so one BonusMalus level means a novice at 25 but a recent claimant at 65.
 
 ## Which effects are real
 
@@ -12,14 +12,14 @@ Two-way tables of observed claims against out-of-fold predictions on learn data.
 
 | Pair | vs GLM-A | vs GLM-B |
 |---|---|---|
-| DrivAge x BonusMalus | 5.79 | 3.30 |
-| BonusMalus x VehBrand | 3.58 | 1.18 |
-| BonusMalus x Region | 3.88 | 2.01 |
-| BonusMalus x LogDensity | 2.20 | 1.57 |
+| DrivAge x BonusMalus | 5.79 | 3.95 |
+| BonusMalus x VehBrand | 3.58 | 1.86 |
+| BonusMalus x Region | 3.88 | 2.49 |
+| BonusMalus x LogDensity | 2.20 | 2.24 |
 | DrivAge x LogDensity | 0.82 | 0.85 |
-| VehAge x VehBrand | 1.80 | 1.77 |
+| VehAge x VehBrand | 1.80 | 1.78 |
 | DrivAge x VehPower | 1.52 | 1.49 |
-| DrivAge x Region | 0.99 | 1.16 |
+| DrivAge x Region | 0.99 | 1.18 |
 
 Rejected untested (no excess over noise): DrivAge x LogDensity (0.82; 1 significant cells, 4.4 expected); DrivAge x VehPower (1.52; 5 significant cells, 3.9 expected); DrivAge x Region (0.99; 2 significant cells, 6.9 expected).
 
@@ -39,8 +39,8 @@ Rejected or not tested:
 
 ## Share of GBM lift captured
 
-GLM-B closes 46.0% of the CV deviance gap between GLM-A and the GBM (36.1% on holdout) with 4 extra parameters. Holdout Gini: GLM-A 0.294, GLM-B 0.302, GBM 0.316. BonusMalus x Region residual statistic: 3.88 under GLM-A, 2.97 before the region term (2.76 if density is added instead), 2.01 after it.
+GLM-B closes 41.1% of the CV deviance gap between GLM-A and the GBM (32.7% on holdout) with 4 interaction parameters, after merging BonusMalus 61-80 (D039). Holdout Gini: GLM-A 0.294, GLM-B 0.302, GBM 0.316. BonusMalus x Region residual statistic: 3.88 under GLM-A, 2.97 before the region term (2.76 if density is added instead), 2.01 after it.
 
 ## B12 and short exposure
 
-B12 policies are shorter (mean exposure 0.39 against 0.57) and newer (46.3% aged 0-1 against 9.9%). Refitting GLM-B with log(exposure) as a free covariate moves the B12 coefficients by a factor of 0.85. About 14.5% of the B12 effect is associated with short exposure; the rest persists.
+B12 policies are shorter (mean exposure 0.39 against 0.57) and newer (46.3% aged 0-1 against 9.9%). Refitting GLM-B with log(exposure) as a free covariate moves the B12 coefficients by a factor of 0.86. About 14.2% of the B12 effect is associated with short exposure; the rest persists.

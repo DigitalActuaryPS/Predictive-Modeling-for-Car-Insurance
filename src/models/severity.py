@@ -162,7 +162,7 @@ def run() -> dict:
     n_folds = cfg["split"]["n_folds"]
     pol = add_severity_features(pd.read_parquet(processed / "policies_banded.parquet"))
     claims = pd.read_parquet(processed / "claims.parquet")
-    base = pd.read_csv(tables / "base_levels.csv").set_index("factor")["base_level"].to_dict()
+    base = pd.read_csv(tables / "base_levels.csv", dtype=str).set_index("factor")["base_level"].to_dict()
     with open(processed / "models" / "frequency_stage3.pkl", "rb") as fh:
         s3 = pickle.load(fh)
     with open(processed / "models" / "frequency_glm_b.pkl", "rb") as fh:

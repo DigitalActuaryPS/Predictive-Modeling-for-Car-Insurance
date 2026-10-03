@@ -8,7 +8,7 @@ from src.models.glm import FactorTerm, design, fit_glm
 def _glm_a_inputs(cfg):
     p = pd.read_parquet(cfg["paths"]["processed"] / "policies_banded.parquet")
     learn = p[~p["holdout"]].reset_index(drop=True)
-    base = pd.read_csv(cfg["paths"]["tables"] / "base_levels.csv").set_index("factor")["base_level"].to_dict()
+    base = pd.read_csv(cfg["paths"]["tables"] / "base_levels.csv", dtype=str).set_index("factor")["base_level"].to_dict()
     return learn, [FactorTerm(f, base[f]) for f in cfg["glm"]["factors"]]
 
 
