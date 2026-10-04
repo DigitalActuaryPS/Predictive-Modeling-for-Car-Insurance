@@ -139,4 +139,4 @@ make all
 - A. Noll, R. Salzmann and M. V. Wüthrich (2020), *Case study: French motor third-party liability claims*, SSRN 3164764.
 - GLMs, LightGBM, SHAP (Lundberg et al.) and Friedman's H-statistic are standard methods, used as published.
 
-Prathmesh Shah, GI Pricing Actuary
+Prathmesh Shah, GI Pricing and Reserving Actuary
