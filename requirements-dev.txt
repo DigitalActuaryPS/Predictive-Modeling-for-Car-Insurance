@@ -1,0 +1,5 @@
+# Development extras: only needed for `make notebooks` (executes the display-only notebooks).
+-r requirements.txt
+jupyter==1.1.1
+nbconvert==7.17.1
+ipykernel==7.4.0

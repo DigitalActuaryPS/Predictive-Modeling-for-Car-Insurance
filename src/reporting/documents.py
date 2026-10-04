@@ -136,7 +136,8 @@ Decisions and evidence: [DECISIONS.md](DECISIONS.md).
 The GBM's strongest interactions involve BonusMalus, led by driver age: a high bonus-malus coefficient means
 inexperience for a young driver but recent claims for an older one. Accepted, one pair at a time (all 5 folds improve,
 at least 5% of the gap, parsimony tie-break): {'; '.join(descs.values())}. Driver age x density and driver age x region
-showed no pattern in the raw data and were rejected as GBM artefacts. See
+showed no pattern in the raw data and were rejected as GBM artefacts. The region x BonusMalus grouping is data-driven,
+with no identified cause, and would need fairness and regulatory review before use. See
 [reports/shap_interactions.md](reports/shap_interactions.md).
 
 ## Tariff
@@ -148,6 +149,9 @@ BonusMalus, so the effective relativity (mean premium relative to the base level
 {rel_table(drv, 'Driver age')}
 
 {rel_table(bm, 'BonusMalus')}
+
+BonusMalus 61-80 is a single band so that premium never falls as BonusMalus rises (D039); the original claim-frequency
+spike at 61-65 that required this is unexplained by the available data.
 
 **Main trade-off of a GLM tariff.** Against a GBM-based premium on the holdout (correlation {vs.pearson_rate:.2f}), observed
 loss cost is {vs.decile1_observed_over_tariff:.2f}x the tariff premium in the decile where the tariff is cheapest relative to
@@ -288,10 +292,7 @@ def render() -> tuple[str, str]:
 
 
 def run() -> dict:
-    from src.reporting import notebooks
-
     r, lim = render()
-    notebooks.write()
     (ROOT / "README.md").write_text(r)
     (ROOT / "LIMITATIONS.md").write_text(lim)
     return {"readme_words": len(r.split()), "limitations_words": len(lim.split())}

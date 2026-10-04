@@ -1,6 +1,6 @@
 """Writes thin, display-only notebooks (one per stage) into notebooks/. They read the
-tables and figures produced by the pipeline; all computation lives in src/. Jupyter is
-not a pinned dependency: the notebooks are optional viewers."""
+tables and figures produced by the pipeline; all computation lives in src/. Generated and
+executed by `make notebooks` (Jupyter is in requirements-dev.txt, not requirements.txt)."""
 import json
 
 from src.config import ROOT

@@ -44,7 +44,8 @@ Deviance is the mean Poisson deviance per policy on claim counts (DECISIONS D019
 The GBM's strongest interactions involve BonusMalus, led by driver age: a high bonus-malus coefficient means
 inexperience for a young driver but recent claims for an older one. Accepted, one pair at a time (all 5 folds improve,
 at least 5% of the gap, parsimony tie-break): a steeper BonusMalus effect for drivers under 30 plus a loading for drivers 55+ above the floor of 50; a flatter BonusMalus effect for brand B12; a flatter BonusMalus effect in a group of mainly urban and southern regions. Driver age x density and driver age x region
-showed no pattern in the raw data and were rejected as GBM artefacts. See
+showed no pattern in the raw data and were rejected as GBM artefacts. The region x BonusMalus grouping is data-driven,
+with no identified cause, and would need fairness and regulatory review before use. See
 [reports/shap_interactions.md](reports/shap_interactions.md).
 
 ## Tariff
@@ -77,6 +78,9 @@ BonusMalus, so the effective relativity (mean premium relative to the base level
 | 91-99 | 4.05 (3.68-4.47) | 3.00 |
 | 100-110 | 6.93 (6.20-7.73) | 4.99 |
 | 111+ | 10.80 (9.53-12.25) | 8.67 |
+
+BonusMalus 61-80 is a single band so that premium never falls as BonusMalus rises (D039); the original claim-frequency
+spike at 61-65 that required this is unexplained by the available data.
 
 **Main trade-off of a GLM tariff.** Against a GBM-based premium on the holdout (correlation 0.94), observed
 loss cost is 1.27x the tariff premium in the decile where the tariff is cheapest relative to

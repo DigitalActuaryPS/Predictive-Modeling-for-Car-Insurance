@@ -1000,8 +1000,10 @@ uncaptured, and that gap is concentrated in these tails. The README states this.
 - **Scope.** GLM-A keeps its 11 BonusMalus bands, as the incumbent structure, including
   the reversal at 61-65. Removing that reversal is one of the changes Stage 7 measures.
   GLM-B uses `BonusMalus_bandB`.
-- **Why the reversal existed.** Not investigated (it would need BonusMalus values within
-  61-80). Merging hides it from customers, but keeps it as a pattern to explain.
+- **Why the reversal existed.** The original claim-frequency spike at BonusMalus 61-65 is
+  unexplained by the available data: the dataset has no claim history, dates or
+  bonus-malus transition records that could account for it. Merging hides it from
+  customers, but keeps it as a pattern to explain.
 - **Addendum: what "effective" measures on learn.** A Poisson GLM with a log link,
   intercept and a factor reproduces observed claim totals for every level of that factor.
   So on the learn set, the effective BonusMalus frequency relativity of any GLM that
@@ -1109,7 +1111,10 @@ uncaptured, and that gap is concentrated in these tails. The README states this.
 - **Dependencies.** Pinned in `requirements.txt`. scikit-learn was removed: the split,
   metrics and GLM fitter are implemented in this repo, and nothing imported it.
   statsmodels is used only to validate the GLM fitter (test) and in the runtime
-  benchmark. Jupyter is not a dependency: the notebooks are optional, display-only
-  viewers of `reports/`.
+  benchmark. Jupyter, nbconvert and ipykernel are development dependencies only
+  (`requirements-dev.txt`).
+- **Notebooks.** `make notebooks` generates and executes the display-only stage
+  notebooks, and their outputs are committed. `make all` does not touch them, so its
+  behaviour is unchanged and it needs no Jupyter install.
 - **No `^` in source.** `tests/test_no_xor.py` fails if the character appears anywhere in
   `src/`, including strings and comments, so power notation in docstrings uses `**`.
