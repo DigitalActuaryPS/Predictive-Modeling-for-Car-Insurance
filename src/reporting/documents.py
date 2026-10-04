@@ -97,6 +97,23 @@ def readme(D, cfg) -> str:
     descs = {r.accepted: plain.get(r.accepted, sel[(sel.step == r.step) & (sel.candidate == r.accepted)].iloc[0].description)
              for r in acc.itertuples()}
 
+    imp = pd.read_csv(cfg["paths"]["tables"] / "glm_a_factor_importance.csv").set_index("factor")
+    n_a, n_b = int(c.loc["GLM-A (current tariff)", "n_params"]), int(c.loc["GLM-B (proposed tariff)", "n_params"])
+    young = drv.set_index("level").loc["18-20"]
+    key_findings = "\n".join([
+        f"- Claims history dominates: BonusMalus carries {pct(imp.loc['BonusMalus_band', 'share_of_glm_a_vs_intercept_cv_gain'], 0)} "
+        "of GLM-A's cross-validated gain.",
+        f"- Three BonusMalus interactions recover {pct(g.cv_gap_closed_by_glm_b)} of the GBM's CV deviance advantage "
+        f"({pct(g.holdout_gap_closed_by_glm_b)} holdout) for {n_b - n_a} net extra parameter{'s' if n_b - n_a != 1 else ''}.",
+        f"- Exposure is not proportional (free coefficient {D['expo'].coef_log_exposure:.2f}); treating it as a control moves "
+        f"premium {pct(ctrl.loc[('DrivAge_band', '18-20')] - 1, signed=True)} at ages 18-20 and "
+        f"{pct(ctrl.loc[('DrivAge_band', '75+')] - 1, signed=True)} at 75+.",
+        f"- Fitted relativities mislead under interactions: ages 18-20 fitted {young.combined_relativity:.2f}, effective "
+        f"{young.effective_relativity:.2f}.",
+    ])
+    sel_params = int(sum(sel[(sel.step == r.step) & (sel.candidate == r.accepted)].iloc[0].n_params for r in acc.itertuples()))
+    merged_away = int(D["mono"]["n_params"].iloc[0] - D["mono"]["n_params"].iloc[-1])
+
     text = f"""# fremtpl2-motor-pricing
 
 Motor third-party liability pricing on the French MTPL data (freMTPL2, CASdatasets): frequency and severity GLMs, a GBM
@@ -110,6 +127,10 @@ Poisson GLM (GLM-A) reaches holdout Gini {c.loc['GLM-A (current tariff)', 'holdo
 actual-versus-expected tables, gave three BonusMalus interactions; adding them (GLM-B) closes {pct(g.cv_gap_closed_by_glm_b)}
 of the cross-validated deviance gap to the GBM ({pct(g.holdout_gap_closed_by_glm_b)} on holdout). Severity is a Gamma GLM on
 claims capped at {cfg['cleaning']['large_loss_threshold']:,} plus a flat large-loss load.
+
+## Key findings
+
+{key_findings}
 
 ## Data and cleaning
 
@@ -128,6 +149,9 @@ Decisions and evidence: [DECISIONS.md](DECISIONS.md).
 
 {results_table(D)}
 
+GLM-B parameters: the interactions add {sel_params} and the BonusMalus constraint (merging 61-80) removes {merged_away},
+a net {n_b - n_a:+d} against GLM-A.
+
 ![Holdout lift](reports/figures/lift_holdout.png)
 ![Holdout double lift, GBM vs GLM-B](reports/figures/double_lift_gbm_vs_glm_b_holdout.png)
 
@@ -143,14 +167,15 @@ with no identified cause, and would need fairness and regulatory review before u
 ## Tariff
 
 Base rate {D['tsum'].loc['GLM-B tariff (proposed)', 'base_rate']:.2f} per policy-year; severity varies only by a
-three-level BonusMalus. Fitted driver-age relativities mislead on their own because young drivers' risk is carried by
-BonusMalus, so the effective relativity (mean premium relative to the base level, interactions included) is shown too.
+three-level BonusMalus. Fitted driver-age relativities mislead on their own: young drivers' risk is carried by the
+under-30 BonusMalus slope interaction (on top of the BonusMalus relativities), so the effective relativity (mean premium
+relative to the base level, interactions included) is shown too.
 
 {rel_table(drv, 'Driver age')}
 
 {rel_table(bm, 'BonusMalus')}
 
-BonusMalus 61-80 is a single band so that premium never falls as BonusMalus rises (D039); the original claim-frequency
+BonusMalus 61-80 is a single band under the BonusMalus constraint, so premium never falls as BonusMalus rises (D039); the original claim-frequency
 spike at 61-65 that required this is unexplained by the available data.
 
 **Main trade-off of a GLM tariff.** Against a GBM-based premium on the holdout (correlation {vs.pearson_rate:.2f}), observed
@@ -164,7 +189,7 @@ the GBM ({vs.decile1_observed_over_gbm:.2f}x the GBM's) and {vs.decile10_observe
 |---|---|---|
 """ + "\n".join(f"| {k} | {pct(r.share_exposure_moving_gt_5pct)} | {pct(r.mean_abs_change)} |" for k, r in br.iterrows()) + f"""
 
-The interactions, not the no-claims fix, drive the movement. On the holdout the proposed premium is closer to observed
+The interactions, not the BonusMalus constraint, drive the movement. On the holdout the proposed premium is closer to observed
 loss cost in {toward} of {len(bands)} change bands but overshoots the largest increases; a rebalanced +/-15% cap delivers
 {pct(capr.share_of_premium_movement_delivered)} of the movement in year one. See
 [reports/impact_analysis.md](reports/impact_analysis.md).
@@ -177,7 +202,7 @@ loss cost in {toward} of {len(bands)} change bands but overshoots the largest in
 - Holdout actual over modelled burning cost is {rec.loc[('GLM-B', 'holdout'), 'actual_over_modelled']:.2f}, or
   {rec.loc[('GLM-B', 'holdout excl. largest claim'), 'actual_over_modelled']:.2f} without its largest claim.
 - Burning cost only; no demand, competitor or fairness analysis.
-- French TPL with a statutory bonus-malus scale; not transferable to UK motor.
+- French TPL with a statutory bonus-malus scale; the methods transfer to UK motor, the parameters do not.
 
 {bm_short(cfg)}
 
@@ -197,7 +222,7 @@ make all
 - A. Noll, R. Salzmann and M. V. Wüthrich (2020), *Case study: French motor third-party liability claims*, SSRN 3164764.
 - GLMs, LightGBM, SHAP (Lundberg et al.) and Friedman's H-statistic are standard methods, used as published.
 
-[AUTHOR NAME, ROLE]
+Prathmesh Shah, GI Pricing Actuary
 """
     return text
 

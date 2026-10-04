@@ -28,7 +28,7 @@ Largest moves by factor level (at least 2,000 policy-years): VehBrand_grp B12 +7
 | 2. GLM-A-mono -> GLM-B (interactions) | 65.3% | 11.3% | 9.6% |
 | total: GLM-A -> GLM-B | 67.7% | 12.4% | 10.1% |
 
-Making the no-claims scale monotone moves 8.5% of exposure by more than 5%; the three BonusMalus interactions (by driver age, for brand B12, and for a group of mainly urban and southern regions) move 65.3%. The proposal analysed here is the second step.
+The BonusMalus constraint moves 8.5% of exposure by more than 5%; the three BonusMalus interactions (by driver age, for brand B12, and for a group of mainly urban and southern regions) move 65.3%. The proposal analysed here is the second step.
 
 ## Is it supported by experience
 

@@ -12,6 +12,13 @@ actual-versus-expected tables, gave three BonusMalus interactions; adding them (
 of the cross-validated deviance gap to the GBM (32.7% on holdout). Severity is a Gamma GLM on
 claims capped at 20,000 plus a flat large-loss load.
 
+## Key findings
+
+- Claims history dominates: BonusMalus carries 63% of GLM-A's cross-validated gain.
+- Three BonusMalus interactions recover 41.1% of the GBM's CV deviance advantage (32.7% holdout) for 1 net extra parameter.
+- Exposure is not proportional (free coefficient 0.64); treating it as a control moves premium -8.5% at ages 18-20 and +10.5% at 75+.
+- Fitted relativities mislead under interactions: ages 18-20 fitted 0.57, effective 3.31.
+
 ## Data and cleaning
 
 | Item | Treatment | Ref. |
@@ -36,6 +43,9 @@ Decisions and evidence: [DECISIONS.md](DECISIONS.md).
 
 Deviance is the mean Poisson deviance per policy on claim counts (DECISIONS D019). CV uses 5 grouped folds of the learn set; the holdout (20%) was used only for final evaluation. The impact analysis uses GLM-A-mono as the current tariff: GLM-A with BonusMalus 61-80 merged so premium never falls as BonusMalus rises (69 parameters, CV 0.239374, holdout 0.242727; D041).
 
+GLM-B parameters: the interactions add 4 and the BonusMalus constraint (merging 61-80) removes 3,
+a net +1 against GLM-A.
+
 ![Holdout lift](reports/figures/lift_holdout.png)
 ![Holdout double lift, GBM vs GLM-B](reports/figures/double_lift_gbm_vs_glm_b_holdout.png)
 
@@ -51,8 +61,9 @@ with no identified cause, and would need fairness and regulatory review before u
 ## Tariff
 
 Base rate 108.56 per policy-year; severity varies only by a
-three-level BonusMalus. Fitted driver-age relativities mislead on their own because young drivers' risk is carried by
-BonusMalus, so the effective relativity (mean premium relative to the base level, interactions included) is shown too.
+three-level BonusMalus. Fitted driver-age relativities mislead on their own: young drivers' risk is carried by the
+under-30 BonusMalus slope interaction (on top of the BonusMalus relativities), so the effective relativity (mean premium
+relative to the base level, interactions included) is shown too.
 
 | Driver age | Fitted (95% CI) | Effective |
 |---|---|---|
@@ -79,7 +90,7 @@ BonusMalus, so the effective relativity (mean premium relative to the base level
 | 100-110 | 6.93 (6.20-7.73) | 4.99 |
 | 111+ | 10.80 (9.53-12.25) | 8.67 |
 
-BonusMalus 61-80 is a single band so that premium never falls as BonusMalus rises (D039); the original claim-frequency
+BonusMalus 61-80 is a single band under the BonusMalus constraint, so premium never falls as BonusMalus rises (D039); the original claim-frequency
 spike at 61-65 that required this is unexplained by the available data.
 
 **Main trade-off of a GLM tariff.** Against a GBM-based premium on the holdout (correlation 0.94), observed
@@ -95,7 +106,7 @@ the GBM (0.94x the GBM's) and 0.65x in the dearest
 | 2. GLM-A-mono -> GLM-B (interactions) | 65.3% | 9.6% |
 | total: GLM-A -> GLM-B | 67.7% | 10.1% |
 
-The interactions, not the no-claims fix, drive the movement. On the holdout the proposed premium is closer to observed
+The interactions, not the BonusMalus constraint, drive the movement. On the holdout the proposed premium is closer to observed
 loss cost in 6 of 7 change bands but overshoots the largest increases; a rebalanced +/-15% cap delivers
 78.6% of the movement in year one. See
 [reports/impact_analysis.md](reports/impact_analysis.md).
@@ -108,7 +119,7 @@ loss cost in 6 of 7 change bands but overshoots the largest increases; a rebalan
 - Holdout actual over modelled burning cost is 1.30, or
   0.94 without its largest claim.
 - Burning cost only; no demand, competitor or fairness analysis.
-- French TPL with a statutory bonus-malus scale; not transferable to UK motor.
+- French TPL with a statutory bonus-malus scale; the methods transfer to UK motor, the parameters do not.
 
 **BonusMalus.** It carries 63% of GLM-A's cross-validated gain and is itself a record of past claims (endogeneity). Claim frequency is associated with the BonusMalus coefficient to the power 2.07 (95% CI 2.01-2.14), but BonusMalus is entangled with driving experience: 6.1% of exposure at ages 18-20 is at the floor of 50 against 80% at 45-54. Full note in [LIMITATIONS.md](LIMITATIONS.md).
 
@@ -128,4 +139,4 @@ make all
 - A. Noll, R. Salzmann and M. V. Wüthrich (2020), *Case study: French motor third-party liability claims*, SSRN 3164764.
 - GLMs, LightGBM, SHAP (Lundberg et al.) and Friedman's H-statistic are standard methods, used as published.
 
-[AUTHOR NAME, ROLE]
+Prathmesh Shah, GI Pricing Actuary

@@ -233,7 +233,7 @@ def write_markdown(cfg, bands, by_factor, top, caps, neutrality, bridge):
                     f"{pct(r.mean_abs_change, False)} |")
     text += [
         "",
-        f"Making the no-claims scale monotone moves {pct(s1.share_exposure_moving_gt_5pct, False)} of exposure by more than 5%; "
+        f"The BonusMalus constraint moves {pct(s1.share_exposure_moving_gt_5pct, False)} of exposure by more than 5%; "
         f"the three BonusMalus interactions (by driver age, for brand B12, and for a group of mainly urban and southern "
         f"regions) move {pct(s2.share_exposure_moving_gt_5pct, False)}. The proposal analysed here is the second step.",
         "",
