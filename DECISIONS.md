@@ -519,8 +519,9 @@ cumulatively.
 - **Decision.** Apply the D007 rule with the tuned model's 565 trees. The expected cost of
   499 s for 20,000 rows is under the 900 s budget, so the size is the cap of 20,000.
   Rows are stratified by claim indicator from the learn set; the holdout is not used.
-- **Evidence.** `reports/tables/shap_run.csv`: 20,000 rows, claim share 0.0367, 194 s
-  actual, and max additivity error 2.0e-14. The run beat its estimate because the tuned
+- **Evidence.** `reports/tables/shap_run.csv`: 20,000 rows, claim share 0.0367, 187 s
+  actual in the clean `make all` run (wall-clock time varies between runs; it was 194 s in
+  the first run), and max additivity error 2.0e-14. The run beat its estimate because the tuned
   trees have 15 leaves against 31 in the benchmark, and the rule scales by tree count
   only, which errs on the safe side.
 - **Trade-off.** Mean absolute interaction values are averages over 20,000 rows, and the
@@ -1078,3 +1079,37 @@ uncaptured, and that gap is concentrated in these tails. The README states this.
   bridge.
 - **Rationale.** An incumbent tariff whose no-claims scale reverses is not realistic.
   Comparing against it mixed the monotonicity correction with the interaction gains.
+
+---
+
+## Stage 8: Documentation and reproducibility
+
+## D042 Generated documents
+
+- **Decision.** README.md, LIMITATIONS.md, `reports/shap_interactions.md`,
+  `reports/impact_analysis.md`, `reports/tariff.md` and `reports/bonus_malus_note.md`
+  are all written by code from `reports/tables/`. `tests/test_reports.py` fails if the
+  committed README or LIMITATIONS differ from a fresh render. This enforces the rule
+  that every number in them is traceable to a pipeline output.
+- **README length.** The prose is within the 600 to 900 word target. With the five
+  required tables included (data, results, two relativity tables, impact), the total is
+  above it. The tables were kept because the brief asks for them.
+- **Data period.** The only statement on the data period is the CASdatasets
+  documentation sentence. `download.py` records it into `data_source.csv`, and
+  LIMITATIONS quotes it verbatim, without inferring a year.
+
+## D043 Reproducibility and dependency choices
+
+- **`make all`** runs: download (cached in `data/raw/`), every stage
+  (`src/pipeline.py`), then the tests. Per-stage runtimes are written to
+  `reports/tables/pipeline_runtime.csv`.
+- **Optional evidence scripts.** `make versions` (the CASdatasets release comparison) and
+  `make benchmark` (the SHAP runtime) need network access to GitHub. Their outputs are
+  committed, and `make all` does not regenerate them.
+- **Dependencies.** Pinned in `requirements.txt`. scikit-learn was removed: the split,
+  metrics and GLM fitter are implemented in this repo, and nothing imported it.
+  statsmodels is used only to validate the GLM fitter (test) and in the runtime
+  benchmark. Jupyter is not a dependency: the notebooks are optional, display-only
+  viewers of `reports/`.
+- **No `^` in source.** `tests/test_no_xor.py` fails if the character appears anywhere in
+  `src/`, including strings and comments, so power notation in docstrings uses `**`.

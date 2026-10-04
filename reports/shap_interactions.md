@@ -8,7 +8,7 @@ SHAP interaction values for the tuned GBM, on 20,000 learn policies stratified b
 
 ## Which effects are real
 
-Two-way tables of observed claims against out-of-fold predictions on learn data. Statistic: sum(z^2) / df, with df = cells - rows - cols + 1 (cells under 200 policy-years excluded); near 1 means no pattern left.
+Two-way tables of observed claims against out-of-fold predictions on learn data. Statistic: sum(z**2) / df, with df = cells - rows - cols + 1 (cells under 200 policy-years excluded); near 1 means no pattern left.
 
 | Pair | vs GLM-A | vs GLM-B |
 |---|---|---|

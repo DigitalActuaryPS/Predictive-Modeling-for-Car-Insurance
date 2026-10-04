@@ -127,7 +127,7 @@
 
 ## Interactions
 
-Multipliers apply on top of the main-effect relativities. BonusMalus-slope terms are exact per policy as (BonusMalus / 50) ^ coefficient; the tables evaluate them at each band's exposure-weighted mean BonusMalus.
+Multipliers apply on top of the main-effect relativities. BonusMalus-slope terms are exact per policy as (BonusMalus / 50) ** coefficient; the tables evaluate them at each band's exposure-weighted mean BonusMalus.
 
 ### young_lbm_senior_malus
 
